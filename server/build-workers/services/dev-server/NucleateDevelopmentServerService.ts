@@ -7,6 +7,10 @@ import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   PublicConnectGitHubSuccessResponse,
+  PublicDevServerAddBackendRequest,
+  PublicDevServerAddBackendSuccessResponse,
+  PublicDevServerAddContextRequest,
+  PublicDevServerAddContextSuccessResponse,
   PublicDevServerRefetchEnvRequest,
   PublicDevServerRefetchEnvSuccessResponse,
   PublicDevServerRestartSuccessResponse,
@@ -43,9 +47,14 @@ import type { Database } from "../../types/supabase.js";
 import { SandboxOrchestrationInitiatorService } from "../SandboxOrchestrationInitiatorService.js";
 import { handleConnectGitHubImpl } from "./handlers/handleConnectGitHub.js";
 import { handleBuildStatusImpl } from "./handlers/handleBuildStatus.js";
+import { handleAddBackendImpl } from "./handlers/handleAddBackend.js";
+import { handleAddContextImpl } from "./handlers/handleAddContext.js";
 import type { ChatQueryData } from "../../types/ChatTypes.js";
 import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import { WORK_DIR } from "../../worker.js";
+import fs from "fs/promises";
+import path from "path";
+import { SupabaseManagementAPI, isSupabaseError } from "supabase-management-js";
 import {
   createSourceRepoPullRequest as handleCreateSourceRepoPullRequest,
   prepareSourceRepoBranch,
@@ -77,6 +86,16 @@ export class NucleateDevelopmentServerService {
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public cloudflareTunnelHostname: string | null;
+  public developmentServerState: {
+    tunnelUrl: string;
+    devServerStatus: DevServerStatus;
+    isBuilding: boolean;
+    builtVersion: string;
+    buildStartTime: Date;
+    lastUpdatedTime: Date;
+    buildError?: string;
+  };
+  // Github Repository (prototype & source) relevant state info
   public githubRepository: {
     repositoryUrl: string;
     repositoryOwner: string;
@@ -97,16 +116,15 @@ export class NucleateDevelopmentServerService {
     defaultBranch: string;
     fullName: string;
   } | null = null;
-  public developmentServerState: {
-    tunnelUrl: string;
-    devServerStatus: DevServerStatus;
-    isBuilding: boolean;
-    builtVersion: string;
-    buildStartTime: Date;
-    lastUpdatedTime: Date;
-    buildError?: string;
-  };
   private githubTokenRefreshInterval: NodeJS.Timeout | null = null;
+  // prototype backend state info
+  public prototypeBackend: {
+    type: "supabase" | "convex" | "custom";
+    projectId: string;
+    projectUrl: string | null;
+    metadata: Record<string, unknown>;
+    authenticationKey: string | null;
+  } | null = null;
 
   constructor(
     sandboxService: SandboxService,
@@ -161,6 +179,14 @@ export class NucleateDevelopmentServerService {
     );
 
     app.post("/dev-server/connect-github", this.connectGitHub.bind(this));
+    app.post<{ Body: PublicDevServerAddContextRequest }>(
+      "/dev-server/add-context",
+      this.addContext.bind(this),
+    );
+    app.post<{ Body: PublicDevServerAddBackendRequest }>(
+      "/dev-server/add-backend",
+      this.addBackend.bind(this),
+    );
 
     app.delete("/cleanup", this.cleanup.bind(this));
     app.delete("/cleanup-tunnel-only", this.cleanupTunnelOnly.bind(this));
@@ -197,6 +223,93 @@ export class NucleateDevelopmentServerService {
     fullName: string;
   }): void {
     this.sourceRepository = sourceRepository;
+  }
+
+  public setPrototypeBackend(
+    backend: {
+      type: "supabase" | "convex" | "custom";
+      projectId: string;
+      projectUrl: string | null;
+      metadata: Record<string, unknown>;
+      authenticationKey: string | null;
+    } | null,
+  ): void {
+    this.prototypeBackend = backend;
+  }
+
+  public async syncBackendEnvVarsToConnectedBackend(
+    logger: SystemLogger,
+  ): Promise<{ success: boolean; syncedCount: number; error?: string }> {
+    const backend = this.prototypeBackend;
+    if (!backend || backend.type !== "supabase") {
+      return { success: true, syncedCount: 0 };
+    }
+
+    if (!backend.authenticationKey) {
+      const message = "Missing backend authentication key for env sync";
+      logger.warn(message, { backendType: backend.type });
+      return { success: false, syncedCount: 0, error: message };
+    }
+
+    const envPath = path.join(
+      WORK_DIR,
+      "backend",
+      "supabase",
+      "functions",
+      ".env",
+    );
+
+    try {
+      await fs.access(envPath);
+    } catch {
+      return { success: true, syncedCount: 0 };
+    }
+
+    try {
+      const contents = await fs.readFile(envPath, "utf8");
+      const secrets = parseEnvFileToSecrets(contents, logger);
+
+      if (secrets.length === 0) {
+        return { success: true, syncedCount: 0 };
+      }
+
+      const managementClient = new SupabaseManagementAPI({
+        accessToken: backend.authenticationKey,
+      });
+
+      await managementClient.createSecrets(backend.projectId, secrets);
+
+      logger.consoleLogDevOnly(
+        "info",
+        "Synced backend env vars to Supabase project secrets",
+        {
+          projectId: backend.projectId,
+          envVarCount: secrets.length,
+        },
+      );
+
+      return { success: true, syncedCount: secrets.length };
+    } catch (error) {
+      if (isSupabaseError(error)) {
+        logger.error(
+          error,
+          "Failed to sync backend env vars to Supabase (management API)",
+          { statusCode: error.response.status },
+        );
+        return {
+          success: false,
+          syncedCount: 0,
+          error: `Supabase API error (${error.response.status}) while syncing secrets`,
+        };
+      }
+
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(
+        error instanceof Error ? error : new Error(message),
+        "Failed to sync backend env vars to Supabase",
+      );
+      return { success: false, syncedCount: 0, error: message };
+    }
   }
 
   /**
@@ -347,8 +460,7 @@ export class NucleateDevelopmentServerService {
       logger.warn("Cannot push to GitHub: no repository attached");
       return;
     }
-    const installationToken =
-      this.githubInstallationToken?.installationToken;
+    const installationToken = this.githubInstallationToken?.installationToken;
     if (!installationToken) {
       logger.warn("Cannot push to GitHub: installation token unavailable");
       return;
@@ -430,8 +542,7 @@ export class NucleateDevelopmentServerService {
     }
 
     try {
-      const installationToken =
-        this.githubInstallationToken?.installationToken;
+      const installationToken = this.githubInstallationToken?.installationToken;
       if (!installationToken) {
         logger.warn(
           "Cannot fetch GitHub changes: installation token unavailable",
@@ -546,7 +657,13 @@ export class NucleateDevelopmentServerService {
   public async prepareSourceRepositoryBranch(
     input: PrepareSourceRepoBranchInput,
     logger: SystemLogger,
-  ): Promise<{ branchName: string; baseBranch: string; pullRequestNumber?: number | null }> {
+  ): Promise<
+    {
+      branchName: string;
+      baseBranch: string;
+      pullRequestNumber?: number | null;
+    }
+  > {
     return prepareSourceRepoBranch(this, input, logger);
   }
 
@@ -649,6 +766,30 @@ export class NucleateDevelopmentServerService {
     return handleConnectGitHubImpl(request, reply, this);
   }
 
+  private async addBackend(
+    request: FastifyRequest<{ Body: PublicDevServerAddBackendRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerAddBackendSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleAddBackendImpl(request, reply, this);
+  }
+
+  private async addContext(
+    request: FastifyRequest<{ Body: PublicDevServerAddContextRequest }>,
+    reply: FastifyReply,
+  ): Promise<
+    SandboxAPIResponse<
+      PublicDevServerAddContextSuccessResponse,
+      StandardErrorResponse
+    >
+  > {
+    return handleAddContextImpl(request, reply, this);
+  }
+
   private async buildAndDeploy(
     request: FastifyRequest,
     reply: FastifyReply,
@@ -675,4 +816,61 @@ export class NucleateDevelopmentServerService {
   > {
     return handleResetSandbox(request, reply, this);
   }
+}
+
+function parseEnvFileToSecrets(
+  contents: string,
+  logger: SystemLogger,
+): Array<{ name: string; value: string }> {
+  const secrets = new Map<string, string>();
+  const lines = contents.split(/\r?\n/);
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+
+    const withoutExport = trimmed.startsWith("export ")
+      ? trimmed.slice(7).trim()
+      : trimmed;
+
+    const equalsIndex = withoutExport.indexOf("=");
+    if (equalsIndex <= 0) {
+      continue;
+    }
+
+    const name = withoutExport.slice(0, equalsIndex).trim();
+    let value = withoutExport.slice(equalsIndex + 1);
+
+    if (!name) {
+      continue;
+    }
+
+    if (name.startsWith("SUPABASE_")) {
+      logger.warn("Skipping SUPABASE_ prefixed env var for secret sync", {
+        envVarName: name,
+      });
+      continue;
+    }
+
+    value = value.trim();
+    if (
+      (value.startsWith("\"") && value.endsWith("\"")) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+      value = value.replace(/\\n/g, "\n").replace(/\\r/g, "\r").replace(
+        /\\"/g,
+        "\"",
+      ).replace(/\\\\/g, "\\");
+    }
+
+    secrets.set(name, value);
+  }
+
+  return Array.from(secrets.entries()).map(([name, value]) => ({
+    name,
+    value,
+  }));
 }

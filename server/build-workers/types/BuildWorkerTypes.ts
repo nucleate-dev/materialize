@@ -132,6 +132,35 @@ export interface PublicDevServerRefetchEnvSuccessResponse {
   env_var_count: number;
 }
 
+export interface PublicDevServerAddBackendRequest {
+  type: "supabase" | "convex" | "custom";
+  project_id: string;
+  project_url?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PublicDevServerAddBackendSuccessResponse {
+  message: string;
+  backend: {
+    type: "supabase" | "convex" | "custom";
+    project_id: string;
+    project_url: string | null;
+  };
+}
+
+export interface PublicDevServerAddContextRequest {
+  github?: {
+    github_repo_id: number;
+    [key: string]: unknown;
+  } | null;
+  figma?: Record<string, unknown> | null;
+  google_docs?: Record<string, unknown> | null;
+}
+
+export interface PublicDevServerAddContextSuccessResponse {
+  message: string;
+}
+
 export interface PublicConnectGitHubSuccessResponse {
   message: string;
   repository_url: string;
@@ -209,22 +238,11 @@ export interface AllocationKeys {
   aak?: string;
 }
 
-export interface AllocationSourceRepository {
-  github_repo_id: number;
-  installation_id: number;
-  repository_url: string;
-  repository_owner: string;
-  repository_name: string;
-  default_branch: string;
-  full_name: string;
-}
-
 export interface PublicAllocateRequest {
   s3_credentials: AllocationS3CredentialsInput;
   user_details: AllocationUserDetails;
   cloudflare_credentials: AllocationCloudflareTunnelCredentials;
   keys: AllocationKeys;
-  source_repository?: AllocationSourceRepository;
 }
 
 export interface PublicAllocateSuccessResponse {

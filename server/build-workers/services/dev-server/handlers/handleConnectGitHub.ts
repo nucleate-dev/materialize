@@ -85,7 +85,7 @@ export async function handleConnectGitHubImpl(
   const { data: githubRepo, error: githubRepoError } =
     await developmentServerService.supabaseClientService
       .getClient()
-      .from("github_repositories")
+      .from("prototype_github_repositories")
       .select("*")
       .eq("github_repo_id", prototypeRow.github_repo_id)
       .single();

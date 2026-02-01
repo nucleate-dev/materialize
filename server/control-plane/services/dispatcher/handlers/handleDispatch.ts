@@ -60,7 +60,6 @@ export async function handleDispatchImpl(
       cache,
       jwt,
       log2,
-      idleContainerAllocationSystem,
     );
   }
   // ------------------------------------------------------------------------------------------------
@@ -434,7 +433,6 @@ async function handleDispatchForSandboxSimulatorFlow(
   cache: GlideClient,
   jwt: string,
   log2: SystemLogger,
-  idleContainerAllocationSystem: IdleContainerAllocationSystemService,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
   const devKey = CACHE_KEYS.protoDev(prototype_id);
   const existingDevData = await hgetallAsDevBuild(cache, devKey);
@@ -464,23 +462,6 @@ async function handleDispatchForSandboxSimulatorFlow(
       },
     };
   }
-
-  // Fetch source repository if it exists
-  const sourceRepository =
-    await idleContainerAllocationSystem.fetchSourceRepositoryForAllocation(
-      prototype_id,
-      jwt,
-    );
-  log2.consoleLogDevOnly('info', 'Source repository for dev mode allocation', {
-    prototypeId: prototype_id,
-    hasSourceRepository: !!sourceRepository,
-    sourceRepositoryDetails: sourceRepository
-      ? {
-          githubRepoId: sourceRepository.github_repo_id,
-          fullName: sourceRepository.full_name,
-        }
-      : undefined,
-  });
 
   // Set initial status, url, and tunnel hostname
   const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
@@ -519,7 +500,6 @@ async function handleDispatchForSandboxSimulatorFlow(
           orchestration_token,
           aak: process.env.ANTHROPIC_API_KEY,
         },
-        source_repository: sourceRepository ?? undefined,
       },
       {
         headers: {

@@ -59,6 +59,7 @@ export type ClaudeCodePanelActiveView = "chat" | "context";
 interface ClaudeCodePanelProps {
   prototypeId: string;
   baseTunnelUrl: string | null;
+  normalizedTunnelUrl?: string | null;
   prototype?: Prototype | null;
   canEditPrototype?: boolean;
   onPrototypeUpdate?: (updatedPrototype: Prototype) => void;
@@ -172,6 +173,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     {
       prototypeId,
       baseTunnelUrl,
+      normalizedTunnelUrl,
       prototype,
       canEditPrototype = false,
       onPrototypeUpdate,
@@ -2759,6 +2761,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         isConnected={isConnected}
         isProcessing={isProcessing}
         baseTunnelUrl={baseTunnelUrl}
+        normalizedTunnelUrl={normalizedTunnelUrl}
         currentRenderStatus={currentRenderStatus}
         modelProvider={modelProvider}
         model={model}

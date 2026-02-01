@@ -685,7 +685,7 @@ export type Database = {
           },
         ]
       }
-      github_repositories: {
+      prototype_github_repositories: {
         Row: {
           account_login: string
           account_type: string
@@ -736,7 +736,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "github_repositories_prototype_id_fkey"
+            foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: false
             referencedRelation: "prototypes"
@@ -820,6 +820,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prototype_assets_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototype_backends: {
+        Row: {
+          backend_type: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at: string
+          id: string
+          metadata: Json
+          prototype_id: string
+          provider_integration_id: string | null
+          provider_project_id: string
+          provider_project_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          backend_type: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json
+          prototype_id: string
+          provider_integration_id?: string | null
+          provider_project_id: string
+          provider_project_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          backend_type?: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json
+          prototype_id?: string
+          provider_integration_id?: string | null
+          provider_project_id?: string
+          provider_project_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_backends_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: false
             referencedRelation: "prototypes"
@@ -1087,7 +1131,7 @@ export type Database = {
           },
         ]
       }
-      prototype_sensitive_metadata: {
+      prototype_source_repositories: {
         Row: {
           created_at: string
           prototype_id: string
@@ -1108,7 +1152,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "prototype_sensitive_metadata_prototype_id_fkey"
+            foreignKeyName: "prototype_source_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: true
             referencedRelation: "prototypes"
@@ -1265,7 +1309,7 @@ export type Database = {
             foreignKeyName: "prototypes_github_repo_id_fkey"
             columns: ["github_repo_id"]
             isOneToOne: false
-            referencedRelation: "github_repositories"
+            referencedRelation: "prototype_github_repositories"
             referencedColumns: ["github_repo_id"]
           },
           {
@@ -1775,6 +1819,7 @@ export type Database = {
       connector_status: "active" | "disconnected" | "token_expired"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
+      prototype_backend_type: "supabase"
       prototype_build_status: "in_progress" | "success" | "failure"
       prototype_framework:
         | "mobile_expo_react_native"
@@ -1923,6 +1968,7 @@ export const Constants = {
       connector_status: ["active", "disconnected", "token_expired"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
+      prototype_backend_type: ["supabase"],
       prototype_build_status: ["in_progress", "success", "failure"],
       prototype_framework: [
         "mobile_expo_react_native",

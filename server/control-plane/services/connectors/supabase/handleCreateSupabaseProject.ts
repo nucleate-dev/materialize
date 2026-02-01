@@ -128,12 +128,6 @@ export async function handleCreateSupabaseProjectImpl(
         });
     }
 
-    // Use service role client for token operations
-    const supabaseServiceClient = createClient<Database>(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
-
     // Generate a secure database password
     const dbPassword = generateSecurePassword();
 
@@ -142,11 +136,12 @@ export async function handleCreateSupabaseProjectImpl(
     let createdProject;
     try {
         createdProject = await executeWithRevocationDetection({
-            supabaseClient: supabaseServiceClient,
             logger: request.log2,
             integrationId: integration.id,
             operation: async (accessToken) => {
-                const managementClient = new SupabaseManagementAPI({ accessToken });
+                const managementClient = new SupabaseManagementAPI({
+                    accessToken,
+                });
                 return managementClient.createProject({
                     organization_id: organizationId,
                     name,
@@ -165,6 +160,16 @@ export async function handleCreateSupabaseProjectImpl(
                     error: "Integration Disconnected",
                     message:
                         "Your Supabase organization has been disconnected. Please reconnect in team settings.",
+                },
+            });
+        }
+        const supabaseError = extractSupabaseManagementError(error);
+        if (supabaseError) {
+            return reply.status(supabaseError.status).send({
+                data: null,
+                error: {
+                    error: "Supabase API Error",
+                    message: supabaseError.message,
                 },
             });
         }
@@ -217,3 +222,53 @@ export async function handleCreateSupabaseProjectImpl(
         error: null,
     });
 }
+
+type SupabaseManagementErrorData = {
+    status: number;
+    message: string;
+    details?: string;
+};
+
+const extractSupabaseManagementError = (
+    error: unknown,
+): SupabaseManagementErrorData | null => {
+    if (!error || typeof error !== "object") {
+        return null;
+    }
+
+    if (!("response" in error)) {
+        return null;
+    }
+
+    const response =
+        (error as { response?: { status?: number; data?: unknown } })
+            .response;
+    if (!response || typeof response !== "object") {
+        return null;
+    }
+
+    const status = typeof response.status === "number"
+        ? response.status
+        : HTTP_STATUS.BAD_GATEWAY;
+    const data = response.data;
+    let message = "Supabase API error";
+    let details: string | undefined;
+
+    if (typeof data === "string") {
+        message = data;
+        details = data;
+    } else if (data && typeof data === "object") {
+        if ("message" in data && typeof data.message === "string") {
+            message = data.message;
+        } else if ("error" in data && typeof data.error === "string") {
+            message = data.error;
+        } else {
+            message = JSON.stringify(data);
+        }
+        details = JSON.stringify(data);
+    } else if (error instanceof Error) {
+        message = error.message;
+    }
+
+    return { status, message, details };
+};

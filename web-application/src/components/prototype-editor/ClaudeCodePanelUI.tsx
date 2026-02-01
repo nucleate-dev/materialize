@@ -33,6 +33,7 @@ import {
   Copy,
   FileText,
   Info,
+  Link2,
   Loader2,
   MessageSquare,
   PanelLeftClose,
@@ -62,6 +63,7 @@ import type {
   UploadedImage,
 } from "./ClaudeCodePanel";
 import AskUserQuestionCard from "./AskUserQuestionCard";
+import ContextDropdown from "./ContextDropdown";
 
 interface ClaudeCodePanelUIProps {
   prototypeId: string;
@@ -71,6 +73,7 @@ interface ClaudeCodePanelUIProps {
   isConnected: boolean;
   isProcessing: boolean;
   baseTunnelUrl: string | null;
+  normalizedTunnelUrl?: string | null;
   currentRenderStatus?: RenderStatus;
   modelProvider: "claude" | "vercel";
   model: string;
@@ -170,6 +173,7 @@ export default function ClaudeCodePanelUI({
   prototypeChatSessionId,
   isConnected,
   isProcessing,
+  normalizedTunnelUrl,
   // baseTunnelUrl, currentRenderStatus, modelProvider, model, vercelModels,
   // onModelProviderChange, onModelChange are available via props if needed
   messages,
@@ -228,6 +232,7 @@ export default function ClaudeCodePanelUI({
   const [expandedToolCommands, setExpandedToolCommands] = useState<Set<string>>(
     new Set(),
   );
+  const [isContextDropdownOpen, setIsContextDropdownOpen] = useState(false);
 
   // Show modal when credit limit is reached, but only once per session
   useEffect(() => {
@@ -1054,30 +1059,59 @@ export default function ClaudeCodePanelUI({
                   )}
                 </div>
 
-                <Button
-                  onClick={isProcessing ? interruptQuery : sendQuery}
-                  disabled={
-                    !isProcessing &&
-                    ((!inputValue.trim() && uploadedImages.length === 0) ||
-                      !isCurrentSessionMostRecent)
-                  }
-                  size="icon"
-                  className={cn(
-                    "h-8 w-8 rounded-lg transition-all shrink-0",
-                    isProcessing
-                      ? "bg-destructive hover:bg-destructive/90 text-white shadow-md"
-                      : (!inputValue.trim() && uploadedImages.length === 0) ||
-                          !isCurrentSessionMostRecent
-                        ? "bg-accent text-muted-foreground"
-                        : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
-                  )}
-                >
-                  {isProcessing ? (
-                    <StopCircle className="w-4 h-4" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                </Button>
+                <div className="flex items-center gap-1 relative">
+                  {/* Context Dropdown */}
+                  <ContextDropdown
+                    isOpen={isContextDropdownOpen}
+                    onClose={() => setIsContextDropdownOpen(false)}
+                    normalizedTunnelUrl={normalizedTunnelUrl}
+                  />
+
+                  {/* Context Button */}
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => setIsContextDropdownOpen(!isContextDropdownOpen)}
+                          disabled={!isCurrentSessionMostRecent}
+                          className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
+                        >
+                          <Link2 className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Context</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Send/Stop Button */}
+                  <Button
+                    onClick={isProcessing ? interruptQuery : sendQuery}
+                    disabled={
+                      !isProcessing &&
+                      ((!inputValue.trim() && uploadedImages.length === 0) ||
+                        !isCurrentSessionMostRecent)
+                    }
+                    size="icon"
+                    className={cn(
+                      "h-8 w-8 rounded-lg transition-all shrink-0",
+                      isProcessing
+                        ? "bg-destructive hover:bg-destructive/90 text-white shadow-md"
+                        : (!inputValue.trim() && uploadedImages.length === 0) ||
+                            !isCurrentSessionMostRecent
+                          ? "bg-accent text-muted-foreground"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90 shadow-md",
+                    )}
+                  >
+                    {isProcessing ? (
+                      <StopCircle className="w-4 h-4" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

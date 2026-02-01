@@ -2,7 +2,7 @@ import {
   CanUseTool,
   HookInput,
   HookJSONOutput,
-  McpSdkServerConfigWithInstance,
+  McpServerConfig,
   Options,
   PermissionMode,
   PermissionResult,
@@ -636,7 +636,7 @@ export class ChatQueryHandler implements ChatEngine {
       allowedToolsDefault.push(SOURCE_REPO_PREP_BRANCH_TOOL_NAME);
     }
 
-    const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
+    const mcpServers: Record<string, McpServerConfig> = {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[], cwd?: string) => {
           const executeSandboxCommandResult = await this.executeSandboxCommand(
@@ -698,6 +698,39 @@ export class ChatQueryHandler implements ChatEngine {
       ),
     };
 
+    // Configure Supabase MCP server if backend is configured
+    const backend = this.devServerService.prototypeBackend;
+    if (backend?.type === "supabase") {
+      const accessToken = process.env.USER_SUPABASE_OAUTH_TOKEN;
+      if (backend.projectId && accessToken) {
+        const features = encodeURIComponent(
+          "docs,account,database,debugging,development,functions,branching,storage",
+        );
+        const supabaseMcpUrl =
+          `https://mcp.supabase.com/mcp?project_ref=${backend.projectId}&features=${features}`;
+        mcpServers["supabase"] = {
+          type: "http",
+          url: supabaseMcpUrl,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        };
+        baseLogger.info("Supabase MCP server configured", {
+          projectId: backend.projectId,
+          mcpUrl: supabaseMcpUrl,
+          features: decodeURIComponent(features),
+        });
+      } else {
+        baseLogger.warn(
+          "Supabase backend configured but MCP not attached (missing token or project ID)",
+          {
+            hasProjectId: !!backend.projectId,
+            hasAccessToken: !!accessToken,
+          },
+        );
+      }
+    }
+
     const agentConfigs: Record<
       string,
       { description: string; prompt: string; tools: string[] }
@@ -743,6 +776,18 @@ export class ChatQueryHandler implements ChatEngine {
       ? agentConfigs
       : undefined;
 
+    // Build allowed tools list, adding supabase wildcard if MCP server is configured
+    const baseAllowedTools = options?.allowedTools ?? allowedToolsDefault;
+    const resolvedAllowedTools = mcpServers["supabase"]
+      ? [...baseAllowedTools, "mcp__supabase__*"]
+      : baseAllowedTools;
+
+    baseLogger.consoleLogDevOnly("info", "Chat MCP configuration", {
+      mcpServerNames: Object.keys(mcpServers),
+      allowedToolsCount: resolvedAllowedTools.length,
+      hasSupabaseMcp: !!mcpServers["supabase"],
+    });
+
     return {
       ...options,
       agents,
@@ -750,7 +795,7 @@ export class ChatQueryHandler implements ChatEngine {
       cwd: WORK_DIR,
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
-      allowedTools: options?.allowedTools ?? allowedToolsDefault,
+      allowedTools: resolvedAllowedTools,
       // model: options?.model ?? "claude-sonnet-4-5",
       systemPrompt: {
         type: "preset" as const,
@@ -763,6 +808,10 @@ export class ChatQueryHandler implements ChatEngine {
             undefined, // previewMode
             false, // hasSourceRepository
             currentViewingPath,
+            undefined, // layoutMode
+            undefined, // screenOrder
+            undefined, // focusedScreenId
+            this.devServerService.prototypeBackend,
           ),
       },
       settingSources: [
@@ -1368,6 +1417,29 @@ export class ChatQueryHandler implements ChatEngine {
       }
     }.bind(this);
 
+    // Log MCP servers being passed to SDK for debugging
+    const mcpServerNames = queryOptions.mcpServers
+      ? Object.keys(queryOptions.mcpServers)
+      : [];
+    baseLogger.consoleLogDevOnly("info", "Starting Claude Agent SDK query", {
+      mcpServerCount: mcpServerNames.length,
+      mcpServerNames,
+      allowedToolsCount: queryOptions.allowedTools?.length ?? 0,
+      hasSupabaseWildcard: queryOptions.allowedTools?.some(
+        (t) => typeof t === "string" && t.includes("supabase"),
+      ),
+      mcpServerConfigs: mcpServerNames.map((name) => {
+        const config = queryOptions.mcpServers?.[name];
+        if (!config) return { name, configured: false };
+        return {
+          name,
+          type: (config as { type?: string }).type ?? "stdio",
+          hasUrl: !!(config as { url?: string }).url,
+          hasHeaders: !!(config as { headers?: Record<string, string> }).headers,
+        };
+      }),
+    });
+
     // Stream responses back to client
     const response = query({
       prompt: generateMessages() as AsyncIterable<SDKUserMessage>,
@@ -1402,6 +1474,77 @@ export class ChatQueryHandler implements ChatEngine {
             previousSessionId,
           },
         );
+
+        // Log MCP server connection status for debugging
+        const initMsg = msg as {
+          type: string;
+          subtype: string;
+          session_id: string;
+          mcp_servers?: Array<{
+            name: string;
+            status: string;
+            error?: string;
+            tools?: Array<{ name: string }>;
+          }>;
+        };
+
+        if (initMsg.mcp_servers && initMsg.mcp_servers.length > 0) {
+          const connectedServers = initMsg.mcp_servers.filter(
+            (s) => s.status === "connected",
+          );
+          const failedServers = initMsg.mcp_servers.filter(
+            (s) => s.status !== "connected",
+          );
+
+          // Log summary of all MCP servers
+          baseLogger.info("MCP server connection status", {
+            totalServers: initMsg.mcp_servers.length,
+            connectedCount: connectedServers.length,
+            failedCount: failedServers.length,
+            servers: initMsg.mcp_servers.map((s) => ({
+              name: s.name,
+              status: s.status,
+              toolCount: s.tools?.length ?? 0,
+              error: s.error,
+            })),
+          });
+
+          // Log details about connected servers and their tools
+          for (const server of connectedServers) {
+            baseLogger.consoleLogDevOnly(
+              "info",
+              `MCP server "${server.name}" connected`,
+              {
+                toolCount: server.tools?.length ?? 0,
+                tools: server.tools?.map((t) => t.name).slice(0, 20), // Log first 20 tool names
+                hasMoreTools: (server.tools?.length ?? 0) > 20,
+              },
+            );
+          }
+
+          // Log errors for failed servers
+          if (failedServers.length > 0) {
+            for (const server of failedServers) {
+              baseLogger.error(
+                new Error(`MCP server "${server.name}" failed to connect`),
+                "MCP server connection failure",
+                {
+                  serverName: server.name,
+                  status: server.status,
+                  error: server.error,
+                },
+              );
+            }
+          }
+        } else {
+          baseLogger.warn(
+            "No MCP servers reported in init message",
+            {
+              hasMcpServersField: "mcp_servers" in msg,
+              rawMcpServers: (msg as Record<string, unknown>).mcp_servers,
+            },
+          );
+        }
 
         // Persist the newly created Claude session ID to the prototype chat session row
         if (sessionState.prototypeChatSessionId) {

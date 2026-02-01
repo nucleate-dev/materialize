@@ -1394,6 +1394,7 @@ Provide actionable recommendations.`,
                 ref={claudeCodePanelRef}
                 prototypeId={prototypeId}
                 baseTunnelUrl={baseTunnelUrl}
+                normalizedTunnelUrl={normalizedSandboxUrl}
                 prototype={prototype}
                 canEditPrototype={canEditPrototype}
                 onPrototypeUpdate={setPrototype}
@@ -1521,6 +1522,7 @@ Provide actionable recommendations.`,
               onExpandChat={() => setIsChatCollapsed(false)}
               onScreenAIAction={handleScreenAIAction}
               onGlobalAIAction={handleGlobalAIAction}
+              onOpenTeamSettings={(tab) => openTeamSettingsDialog(tab)}
               codeView={
                 <div className={`flex h-full ${isMobile ? "flex-col" : ""}`}>
                   {isMobile ? (

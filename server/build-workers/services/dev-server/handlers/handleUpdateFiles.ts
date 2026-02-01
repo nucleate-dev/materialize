@@ -12,6 +12,7 @@ import { fetchUserPlan } from "../../../utils/credit-checks.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 import { NucleateDevelopmentServerService } from "../NucleateDevelopmentServerService.js";
 import { getWorkerContext, WORK_DIR } from "../../../worker.js";
+import type { Database } from "../../../types/supabase.js";
 
 export async function handleUpdateFilesImpl(
   request: FastifyRequest<{ Body: PublicUpdateFilesV2Request }>,
@@ -211,10 +212,14 @@ export async function handleUpdateFilesImpl(
     // Step 6: If package.json changed, run install and restart dev server
     if (hasPackageJsonChanges) {
       try {
+        type PrototypeFramework =
+          | Database["public"]["Enums"]["prototype_framework"]
+          | "mobile_expo_react_native_bun";
+        const framework =
+          developmentServerService.prototypeFramework as PrototypeFramework;
         const useBun =
-          developmentServerService.prototypeFramework ===
-            "mobile_expo_react_native_bun" ||
-          developmentServerService.prototypeFramework === "web_vite_react";
+          framework === "mobile_expo_react_native_bun" ||
+          framework === "web_vite_react";
         const packageManager = useBun ? "bun" : "npm";
 
         request.log2.consoleLogDevOnly(

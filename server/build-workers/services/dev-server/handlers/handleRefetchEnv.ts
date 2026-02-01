@@ -57,6 +57,22 @@ export async function handleRefetchEnvImpl(
     },
   );
 
+  if (developmentServerService.prototypeBackend) {
+    const backendSyncResult = await developmentServerService
+      .syncBackendEnvVarsToConnectedBackend(request.log2);
+    if (!backendSyncResult.success) {
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to sync backend environment variables",
+          message: backendSyncResult.error ??
+            "Failed to sync backend env vars",
+        },
+      };
+    }
+  }
+
   reply.code(HTTP_STATUS.OK);
   return {
     data: {

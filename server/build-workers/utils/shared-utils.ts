@@ -285,17 +285,8 @@ export async function clearAllClaudeSessions(logger: SystemLogger): Promise<{
     const sessionFiles = files.filter((file) => file.endsWith(".jsonl"));
 
     if (sessionFiles.length === 0) {
-      logger.consoleLogDevOnly(
-        "info",
-        "No Claude session files found to clear",
-      );
       return { success: true, deletedCount: 0, errors: [] };
     }
-
-    logger.consoleLogDevOnly("info", "Clearing Claude session files", {
-      sessionCount: sessionFiles.length,
-      directory: CLAUDE_PROJECTS_DIR,
-    });
 
     // Delete all session files
     for (const filename of sessionFiles) {
@@ -303,7 +294,6 @@ export async function clearAllClaudeSessions(logger: SystemLogger): Promise<{
         const sessionFilePath = path.join(CLAUDE_PROJECTS_DIR, filename);
         await fs.unlink(sessionFilePath);
         deletedCount++;
-        logger.debug("Deleted Claude session file", { filename });
       } catch (error) {
         const errorMsg = `Failed to delete ${filename}: ${error instanceof Error ? error.message : String(error)}`;
         errors.push(errorMsg);

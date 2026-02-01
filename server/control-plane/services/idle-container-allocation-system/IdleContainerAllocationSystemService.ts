@@ -10,13 +10,11 @@ import {
   // GetCallerIdentityCommand,
   STSClient,
 } from "@aws-sdk/client-sts";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { GlideClient } from "@valkey/valkey-glide";
 import axios from "axios";
 import { randomBytes } from "crypto";
 import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
 import {
-  AllocationSourceRepository,
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
   SandboxAPIResponse,
@@ -30,15 +28,11 @@ import {
   IdleBuild,
   IdleContainerStatus,
 } from "../../types/InternalTypes.js";
-import { Database } from "../../types/supabase.js";
 import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
-import {
-  createInstallationToken,
-  fetchRepositoryById,
-} from "../connectors/github/githubClient.js";
-import { getValidGitHubUserAccessToken } from "../connectors/github/githubTokenUtils.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { Database } from "../../types/supabase.js";
 
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
@@ -162,8 +156,8 @@ export class IdleContainerAllocationSystemService {
 
     // 1. Try to pop an idle container from the pool
     const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as // NOTE: this is an atomic operation
-    | string
-    | null;
+      | string
+      | null;
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
     if (!taskArn) {
@@ -433,8 +427,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -463,8 +456,7 @@ export class IdleContainerAllocationSystemService {
     } catch (error) {
       log2.error(error, "Failed to launch Fargate task:");
       throw new Error(
-        `Failed to launch Fargate instance: ${
-          error instanceof Error ? error.message : "Unknown error"
+        `Failed to launch Fargate instance: ${error instanceof Error ? error.message : "Unknown error"
         }`,
       );
     }
@@ -646,8 +638,7 @@ export class IdleContainerAllocationSystemService {
         },
       );
       throw new Error(
-        `Failed to assume AWS STS role: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to assume AWS STS role: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -679,8 +670,7 @@ export class IdleContainerAllocationSystemService {
         },
       );
       throw new Error(
-        `Failed to retrieve Cloudflare tunnel: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
@@ -715,16 +705,10 @@ export class IdleContainerAllocationSystemService {
         tunnelHostname: tunnelHostnameWithProtocol,
       });
       throw new Error(
-        `Failed to update tunnel info in cache: ${
-          error instanceof Error ? error.message : String(error)
+        `Failed to update tunnel info in cache: ${error instanceof Error ? error.message : String(error)
         }`,
       );
     }
-
-    const sourceRepository = await this.fetchSourceRepositoryForAllocation(
-      prototypeId,
-      jwt,
-    );
 
     const creds: PublicAllocateRequest = {
       s3_credentials: {
@@ -745,7 +729,6 @@ export class IdleContainerAllocationSystemService {
         orchestration_token: orchestrationToken,
         aak: process.env.ANTHROPIC_API_KEY,
       },
-      source_repository: sourceRepository ?? undefined,
     };
 
     // Send creds to worker
@@ -772,8 +755,7 @@ export class IdleContainerAllocationSystemService {
           },
         );
         throw new Error(
-          `Worker allocation failed: ${
-            allocationResponse.data.error.message || "Unknown error from worker"
+          `Worker allocation failed: ${allocationResponse.data.error.message || "Unknown error from worker"
           }`,
         );
       }
@@ -871,9 +853,8 @@ export class IdleContainerAllocationSystemService {
             `Terminated idle container ${taskArn}`,
           );
         } catch (error) {
-          const errorMsg = `Failed to terminate idle container ${taskArn}: ${
-            error instanceof Error ? error.message : "Unknown error"
-          }`;
+          const errorMsg = `Failed to terminate idle container ${taskArn}: ${error instanceof Error ? error.message : "Unknown error"
+            }`;
           this.log2.error(error, errorMsg);
           errors.push(errorMsg);
         }
@@ -889,8 +870,7 @@ export class IdleContainerAllocationSystemService {
         this.launchIdleContainer().catch((error) => {
           this.log2.error(
             error,
-            `Failed to launch replacement idle container: ${
-              error instanceof Error ? error.message : "Unknown error"
+            `Failed to launch replacement idle container: ${error instanceof Error ? error.message : "Unknown error"
             }`,
           );
         });
@@ -910,9 +890,8 @@ export class IdleContainerAllocationSystemService {
         errors,
       };
     } catch (error) {
-      const errorMsg = `Failed to refresh idle containers: ${
-        error instanceof Error ? error.message : "Unknown error"
-      }`;
+      const errorMsg = `Failed to refresh idle containers: ${error instanceof Error ? error.message : "Unknown error"
+        }`;
       this.log2.error(error, errorMsg);
       errors.push(errorMsg);
       return {
@@ -923,290 +902,4 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
-  public async fetchSourceRepositoryForAllocation(
-    prototypeId: string,
-    jwt: string,
-  ): Promise<AllocationSourceRepository | null> {
-    this.log2.consoleLogDevOnly(
-      "info",
-      "fetchSourceRepositoryForAllocation started",
-      { prototypeId },
-    );
-
-    const supabaseRlsClient = createClient<Database>(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${jwt}`,
-          },
-        },
-      },
-    );
-    try {
-      const { data: sensitiveMetadata, error: metadataError } =
-        await supabaseRlsClient
-          .from("prototype_sensitive_metadata")
-          .select("source_repo_id")
-          .eq("prototype_id", prototypeId)
-          .maybeSingle();
-
-      this.log2.consoleLogDevOnly(
-        "info",
-        "Fetched prototype_sensitive_metadata",
-        {
-          prototypeId,
-          hasData: !!sensitiveMetadata,
-          sourceRepoId: sensitiveMetadata?.source_repo_id,
-          hasError: !!metadataError,
-        },
-      );
-
-      if (metadataError) {
-        this.log2.error(
-          metadataError,
-          "Failed to fetch prototype sensitive metadata for source repository lookup",
-          { prototypeId },
-        );
-        return null;
-      }
-
-      if (!sensitiveMetadata?.source_repo_id) {
-        this.log2.consoleLogDevOnly(
-          "info",
-          "No source_repo_id found in sensitive metadata, returning null",
-          { prototypeId },
-        );
-        return null;
-      }
-
-      const sourceRepoId = sensitiveMetadata.source_repo_id;
-
-      this.log2.consoleLogDevOnly(
-        "info",
-        "Source repo ID found, fetching prototype team",
-        { prototypeId, sourceRepoId },
-      );
-
-      const { data: prototypeRecord, error: prototypeError } =
-        await supabaseRlsClient
-          .from("prototypes")
-          .select("team_id")
-          .eq("id", prototypeId)
-          .maybeSingle();
-
-      this.log2.consoleLogDevOnly("info", "Fetched prototype team_id", {
-        prototypeId,
-        hasData: !!prototypeRecord,
-        teamId: prototypeRecord?.team_id,
-        hasError: !!prototypeError,
-      });
-
-      if (prototypeError) {
-        this.log2.error(
-          prototypeError,
-          "Failed to fetch prototype team for source repository lookup",
-          { prototypeId },
-        );
-        return null;
-      }
-
-      if (!prototypeRecord?.team_id) {
-        this.log2.warn(
-          "Prototype missing team_id, cannot fetch GitHub repository metadata",
-          { prototypeId, sourceRepoId },
-        );
-        return null;
-      }
-
-      const teamId = prototypeRecord.team_id;
-
-      this.log2.consoleLogDevOnly(
-        "info",
-        "Fetching GitHub integration for team",
-        { prototypeId, teamId, sourceRepoId },
-      );
-
-      const { data: integration, error: integrationError } =
-        await supabaseRlsClient
-          .from("github_integrations")
-          .select("account_type, installation_id")
-          .eq("team_id", teamId)
-          .maybeSingle();
-
-      this.log2.consoleLogDevOnly("info", "Fetched GitHub integration", {
-        prototypeId,
-        teamId,
-        hasData: !!integration,
-        accountType: integration?.account_type,
-        installationId: integration?.installation_id,
-        hasError: !!integrationError,
-      });
-
-      if (integrationError) {
-        this.log2.error(
-          integrationError,
-          "Failed to fetch GitHub integration for source repository lookup",
-          { prototypeId, teamId },
-        );
-        return null;
-      }
-
-      if (!integration) {
-        this.log2.warn(
-          "No GitHub integration configured for team, skipping repository metadata fetch",
-          { prototypeId, teamId, sourceRepoId },
-        );
-        return null;
-      }
-
-      let githubAccessToken: string | null = null;
-
-      this.log2.consoleLogDevOnly("info", "Acquiring GitHub access token", {
-        prototypeId,
-        accountType: integration.account_type,
-        installationId: integration.installation_id,
-      });
-
-      if (integration.account_type === "Organization") {
-        try {
-          const installationToken = await createInstallationToken(
-            integration.installation_id,
-            this.log2,
-          );
-          githubAccessToken = installationToken.token;
-          this.log2.consoleLogDevOnly(
-            "info",
-            "Successfully created installation token",
-            { prototypeId, teamId },
-          );
-        } catch (installationTokenError) {
-          this.log2.error(
-            installationTokenError instanceof Error
-              ? installationTokenError
-              : new Error(String(installationTokenError)),
-            "Failed to create installation token for source repository metadata fetch",
-            {
-              prototypeId,
-              teamId,
-              sourceRepoId,
-              installationId: integration.installation_id,
-            },
-          );
-          return null;
-        }
-      } else if (integration.account_type === "User") {
-        try {
-          const tokenResult = await getValidGitHubUserAccessToken({
-            supabaseClient: this.supabaseServiceRoleClient,
-            teamId,
-            logger: this.log2,
-          });
-          githubAccessToken = tokenResult.accessToken;
-          this.log2.consoleLogDevOnly(
-            "info",
-            "Acquired valid GitHub OAuth token for user integration",
-            {
-              prototypeId,
-              teamId,
-              refreshed: tokenResult.refreshed,
-            },
-          );
-        } catch (tokenError) {
-          this.log2.error(
-            tokenError instanceof Error
-              ? tokenError
-              : new Error(String(tokenError)),
-            "Failed to acquire valid GitHub OAuth token for repository metadata fetch",
-            { prototypeId, teamId, sourceRepoId },
-          );
-          return null;
-        }
-      } else {
-        this.log2.warn(
-          "Unsupported GitHub integration account type for repository metadata fetch",
-          {
-            prototypeId,
-            teamId,
-            sourceRepoId,
-            accountType: integration.account_type,
-          },
-        );
-        return null;
-      }
-
-      if (!githubAccessToken) {
-        this.log2.warn(
-          "Unable to acquire GitHub access token, skipping repository metadata fetch",
-          { prototypeId, teamId, sourceRepoId },
-        );
-        return null;
-      }
-
-      this.log2.consoleLogDevOnly(
-        "info",
-        "Fetching repository metadata from GitHub",
-        { prototypeId, sourceRepoId },
-      );
-
-      try {
-        const repoInfo = await fetchRepositoryById(
-          sourceRepoId,
-          githubAccessToken,
-          this.log2,
-        );
-
-        this.log2.consoleLogDevOnly(
-          "info",
-          "Successfully fetched repository metadata from GitHub",
-          {
-            prototypeId,
-            repositoryFullName: repoInfo.full_name,
-            githubRepoId: repoInfo.id,
-          },
-        );
-
-        this.log2.info("Source repository configured for worker allocation", {
-          prototypeId,
-          repositoryFullName: repoInfo.full_name,
-          githubRepoId: repoInfo.id,
-        });
-
-        const result = {
-          github_repo_id: repoInfo.id,
-          installation_id: integration.installation_id,
-          repository_url: repoInfo.html_url,
-          repository_owner: repoInfo.owner?.login ?? "",
-          repository_name: repoInfo.name,
-          default_branch: repoInfo.default_branch,
-          full_name: repoInfo.full_name,
-        };
-
-        this.log2.consoleLogDevOnly(
-          "info",
-          "Returning source repository data for allocation",
-          { prototypeId, result },
-        );
-
-        return result;
-      } catch (repoFetchError) {
-        this.log2.error(
-          repoFetchError instanceof Error
-            ? repoFetchError
-            : new Error(String(repoFetchError)),
-          "Failed to fetch GitHub repository metadata for allocation",
-          { prototypeId, teamId, sourceRepoId },
-        );
-        return null;
-      }
-    } catch (error) {
-      this.log2.error(
-        error instanceof Error ? error : new Error(String(error)),
-        "Unexpected error while fetching source repository data",
-        { prototypeId },
-      );
-      return null;
-    }
-  }
 }

@@ -68,7 +68,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
         if (authResponse.prototype.github_repo_id) {
             const { data: existingRepo, error: repoCheckError } =
                 await supabaseServiceClient
-                    .from("github_repositories")
+                    .from("prototype_github_repositories")
                     .select("github_repo_id, full_name, is_archived, html_url")
                     .eq("github_repo_id", authResponse.prototype.github_repo_id)
                     .maybeSingle();
@@ -279,7 +279,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
             githubRepoId: repoData?.id,
         });
 
-        // 3. Store repository metadata in github_repositories table
+        // 3. Store repository metadata in prototype_github_repositories table
         if (!repoData?.id) {
             request.log2.error(
                 new Error("GitHub repository ID missing from response"),
@@ -302,7 +302,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
             }`;
 
         const { error: insertRepoError } = await supabaseServiceClient
-            .from("github_repositories")
+            .from("prototype_github_repositories")
             .insert({
                 github_repo_id: githubRepoId,
                 prototype_id: prototype_id,
@@ -347,7 +347,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
             );
             // Try to clean up the repo entry we just created
             await supabaseServiceClient
-                .from("github_repositories")
+                .from("prototype_github_repositories")
                 .delete()
                 .eq("github_repo_id", githubRepoId);
 

@@ -361,20 +361,20 @@ export async function handleCreatePrototypeImpl(
         );
       }
 
-      // Insert into prototype_sensitive_metadata if source_repo_id is provided
+      // Insert into prototype_source_repositories if source_repo_id is provided
       if (source_repo_id) {
         const { error: sensitiveMetadataError } = await supabase
-          .from("prototype_sensitive_metadata")
+          .from("prototype_source_repositories")
           .insert(
             {
               prototype_id: newPrototypeId,
               source_repo_id: source_repo_id,
-            } satisfies TablesInsert<"prototype_sensitive_metadata">,
+            } satisfies TablesInsert<"prototype_source_repositories">,
           );
         if (sensitiveMetadataError) {
           request.log2.error(
             sensitiveMetadataError,
-            "[handleCreatePrototype] Failed to insert prototype_sensitive_metadata entry",
+            "[handleCreatePrototype] Failed to insert prototype_source_repositories entry",
             {
               newPrototypeId,
               source_repo_id,
@@ -385,7 +385,7 @@ export async function handleCreatePrototypeImpl(
         } else {
           request.log2.consoleLogDevOnly(
             "info",
-            "[handleCreatePrototype] Created prototype_sensitive_metadata",
+            "[handleCreatePrototype] Created prototype_source_repositories",
             {
               newPrototypeId,
               source_repo_id,

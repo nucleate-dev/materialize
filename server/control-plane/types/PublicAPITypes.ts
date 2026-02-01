@@ -373,6 +373,37 @@ export interface RefreshGitHubInstallationTokenErrorResponse {
   message: string;
 }
 
+export interface GetSupabaseOAuthTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface GetSupabaseOAuthTokenSuccessResponse {
+  access_token: string;
+  expires_at: string | null;
+  refreshed: boolean;
+  integration_id: string;
+}
+
+export interface FetchGitHubSourceRepoRequestBody {
+  prototype_id: string;
+  team_id: string;
+  github_repo_id: number;
+}
+
+export interface FetchGitHubSourceRepoSuccessResponse {
+  source_repo: {
+    github_repo_id: number;
+    installation_id: number;
+    repository_url: string;
+    repository_owner: string;
+    repository_name: string;
+    default_branch: string;
+    full_name: string;
+  };
+  installation_token: string;
+  expires_at: string;
+}
+
 // ============================================================================
 // /teams/accept-invite ENDPOINT
 // ============================================================================
