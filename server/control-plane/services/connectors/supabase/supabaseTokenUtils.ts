@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { decrypt, encrypt } from "../../../utils/encryptionUtils.js";
 import type { Database } from "../../../types/supabase.js";
 import type { SystemLogger } from "../../../loggers/SystemLogger.js";
@@ -13,7 +13,6 @@ export interface ValidSupabaseTokenResult {
 }
 
 interface GetValidSupabaseTokenOptions {
-  supabaseClient: SupabaseClient<Database>;
   logger: SystemLogger;
   integrationId?: string;
   teamId?: string;
@@ -91,11 +90,14 @@ interface ExecuteWithRevocationDetectionOptions<T> {
 export async function executeWithRevocationDetection<T>(
   options: ExecuteWithRevocationDetectionOptions<T>,
 ): Promise<T> {
-  const { supabaseClient, logger, integrationId, operation } = options;
+  const { logger, integrationId, operation } = options;
+  const supabaseServiceClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
 
   // Get the current access token
   const { accessToken } = await getValidSupabaseAccessToken({
-    supabaseClient,
     logger,
     integrationId,
   });
@@ -117,10 +119,17 @@ export async function executeWithRevocationDetection<T>(
     // Force a token refresh by fetching with a very short threshold
     let refreshedToken: string;
     try {
-      refreshedToken = await forceTokenRefresh(supabaseClient, logger, integrationId);
+      refreshedToken = await forceTokenRefresh(
+        supabaseServiceClient,
+        logger,
+        integrationId,
+      );
     } catch (refreshError) {
       // Token refresh failed - if it's due to revocation, mark as disconnected
-      if (refreshError instanceof SupabaseTokenRefreshError && refreshError.isRevoked) {
+      if (
+        refreshError instanceof SupabaseTokenRefreshError &&
+        refreshError.isRevoked
+      ) {
         // Already marked as disconnected by getValidSupabaseAccessToken
         throw new SupabaseAccessRevokedError(integrationId);
       }
@@ -137,7 +146,11 @@ export async function executeWithRevocationDetection<T>(
           "Supabase Management API call failed after token refresh - marking as disconnected",
           { integrationId },
         );
-        await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
+        await markIntegrationAsDisconnected(
+          supabaseServiceClient,
+          integrationId,
+          logger,
+        );
         throw new SupabaseAccessRevokedError(integrationId);
       }
       throw retryError;
@@ -164,7 +177,10 @@ async function forceTokenRefresh(
   }
 
   const refreshToken = decrypt(data.refresh_token_encrypted, "supabase");
-  const refreshed = await refreshSupabaseAccessTokenInternal(refreshToken, logger);
+  const refreshed = await refreshSupabaseAccessTokenInternal(
+    refreshToken,
+    logger,
+  );
 
   if (refreshed.error || !refreshed.access_token) {
     throw new Error("Token refresh failed");
@@ -174,7 +190,10 @@ async function forceTokenRefresh(
   const refreshedExpiresAt = refreshed.expires_in
     ? new Date(Date.now() + refreshed.expires_in * 1000).toISOString()
     : null;
-  const refreshedAccessTokenEncrypted = encrypt(refreshed.access_token, "supabase");
+  const refreshedAccessTokenEncrypted = encrypt(
+    refreshed.access_token,
+    "supabase",
+  );
   const refreshedRefreshEncrypted = refreshed.refresh_token
     ? encrypt(refreshed.refresh_token, "supabase")
     : data.refresh_token_encrypted;
@@ -207,7 +226,8 @@ function isAuthError(error: unknown): boolean {
     "response" in error &&
     typeof (error as { response?: { status?: number } }).response === "object"
   ) {
-    const status = (error as { response: { status?: number } }).response?.status;
+    const status = (error as { response: { status?: number } }).response
+      ?.status;
     if (status === 401 || status === 403) {
       return true;
     }
@@ -250,14 +270,23 @@ function isAuthError(error: unknown): boolean {
 export async function getValidSupabaseAccessToken(
   options: GetValidSupabaseTokenOptions,
 ): Promise<ValidSupabaseTokenResult> {
-  const { supabaseClient, logger } = options;
+  const supabaseServiceClient = createClient<Database>(
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+
+  const { logger } = options;
   const refreshThresholdMs = Number.isFinite(options.refreshThresholdMs) &&
+      options.refreshThresholdMs !== undefined &&
       options.refreshThresholdMs >= 0
     ? options.refreshThresholdMs
     : TOKEN_REFRESH_THRESHOLD_MS;
-  const integrationId = await resolveIntegrationId(options);
+  const integrationId = await resolveIntegrationId(
+    options,
+    supabaseServiceClient,
+  );
 
-  const { data, error } = await supabaseClient
+  const { data, error } = await supabaseServiceClient
     .from("connectors_supabase_integration_tokens")
     .select(
       "access_token_encrypted, refresh_token_encrypted, token_expires_at, token_type, token_scopes",
@@ -320,7 +349,11 @@ export async function getValidSupabaseAccessToken(
   } catch (error) {
     // If the token refresh failed due to revoked access, update the integration status
     if (error instanceof SupabaseTokenRefreshError && error.isRevoked) {
-      await markIntegrationAsDisconnected(supabaseClient, integrationId, logger);
+      await markIntegrationAsDisconnected(
+        supabaseServiceClient,
+        integrationId,
+        logger,
+      );
     }
     throw error;
   }
@@ -349,7 +382,7 @@ export async function getValidSupabaseAccessToken(
     ? encrypt(refreshed.refresh_token, "supabase")
     : data.refresh_token_encrypted;
 
-  const { error: updateError } = await supabaseClient
+  const { error: updateError } = await supabaseServiceClient
     .from("connectors_supabase_integration_tokens")
     .update({
       access_token_encrypted: refreshedAccessTokenEncrypted,
@@ -384,19 +417,20 @@ export async function getValidSupabaseAccessToken(
 
 async function resolveIntegrationId(
   options: GetValidSupabaseTokenOptions,
+  supabaseServiceClient: SupabaseClient<Database>,
 ): Promise<string> {
   if (options.integrationId) {
     return options.integrationId;
   }
 
-  const { teamId, supabaseOrganizationId, supabaseClient, logger } = options;
+  const { teamId, supabaseOrganizationId, logger } = options;
   if (!teamId || !supabaseOrganizationId) {
     throw new Error(
       "Supabase integration identifier missing; provide integrationId or teamId + supabaseOrganizationId",
     );
   }
 
-  const { data, error } = await supabaseClient
+  const { data, error } = await supabaseServiceClient
     .from("connectors_supabase_integrations")
     .select("id")
     .eq("team_id", teamId)
@@ -478,9 +512,12 @@ async function markIntegrationAsDisconnected(
     });
     // Don't throw here - we still want to propagate the original error
   } else {
-    logger.info("Marked Supabase integration as disconnected due to revoked access", {
-      integrationId,
-    });
+    logger.info(
+      "Marked Supabase integration as disconnected due to revoked access",
+      {
+        integrationId,
+      },
+    );
   }
 }
 
