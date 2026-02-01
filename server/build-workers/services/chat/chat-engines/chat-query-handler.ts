@@ -2,6 +2,7 @@ import {
   CanUseTool,
   HookInput,
   HookJSONOutput,
+  McpServerConfig,
   McpSdkServerConfigWithInstance,
   Options,
   PermissionMode,
@@ -613,7 +614,7 @@ export class ChatQueryHandler implements ChatEngine {
       allowedToolsDefault.push(SOURCE_REPO_PREP_BRANCH_TOOL_NAME);
     }
 
-    const mcpServers: Record<string, McpSdkServerConfigWithInstance> = {
+    const mcpServers: Record<string, McpServerConfig> = {
       devtools: createDevelopmentToolsMcpServer(
         async (command: string, args: string[], cwd?: string) => {
           const executeSandboxCommandResult = await this.executeSandboxCommand(
@@ -674,6 +675,32 @@ export class ChatQueryHandler implements ChatEngine {
         WORK_DIR,
       ),
     };
+
+    const backend = this.devServerService.prototypeBackend;
+    if (backend?.type === "supabase") {
+      const accessToken = process.env.USER_SUPABASE_OAUTH_TOKEN;
+      if (backend.projectId && accessToken) {
+        const features = encodeURIComponent(
+          "docs,account,database,debugging,development,functions,branching,storage",
+        );
+        mcpServers["supabase"] = {
+          type: "sse",
+          url:
+            `https://mcp.supabase.com/mcp?project_ref=${backend.projectId}&features=${features}`,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        };
+      } else {
+        baseLogger.warn(
+          "Supabase backend configured but MCP not attached (missing token or project ID)",
+          {
+            hasProjectId: !!backend.projectId,
+            hasAccessToken: !!accessToken,
+          },
+        );
+      }
+    }
 
     const agentConfigs: Record<
       string,

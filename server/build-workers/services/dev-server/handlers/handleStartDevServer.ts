@@ -22,6 +22,11 @@ import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 import { ViteReactAdapter } from "../adapters/ViteReactAdapter.js";
 import { ExpoReactNativeBunAdapter } from "../adapters/ExpoReactNativeBunAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
+import type { Database } from "../../../types/supabase.js";
+
+type PrototypeFramework =
+  | Database["public"]["Enums"]["prototype_framework"]
+  | "mobile_expo_react_native_bun";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -121,8 +126,9 @@ export async function handleStartDevServerImpl(
   const hasGitHubRepo = prototypeRow.github_repo_id !== null;
 
   // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
-  const resolvedFramework = developmentServerService.prototypeFramework ??
-    DEFAULT_PROTOTYPE_FRAMEWORK;
+  const resolvedFramework =
+    (developmentServerService.prototypeFramework ??
+      DEFAULT_PROTOTYPE_FRAMEWORK) as PrototypeFramework;
   if (resolvedFramework === "mobile_expo_react_native_bun") {
     developmentServerService.developmentServerAdapter =
       new ExpoReactNativeBunAdapter(
