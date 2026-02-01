@@ -77,6 +77,16 @@ export class NucleateDevelopmentServerService {
   public s3Client: S3Client | undefined;
   public prototypeFramework: Database["public"]["Enums"]["prototype_framework"];
   public cloudflareTunnelHostname: string | null;
+  public developmentServerState: {
+    tunnelUrl: string;
+    devServerStatus: DevServerStatus;
+    isBuilding: boolean;
+    builtVersion: string;
+    buildStartTime: Date;
+    lastUpdatedTime: Date;
+    buildError?: string;
+  };
+  // Github Repository (prototype & source) relevant state info
   public githubRepository: {
     repositoryUrl: string;
     repositoryOwner: string;
@@ -97,16 +107,15 @@ export class NucleateDevelopmentServerService {
     defaultBranch: string;
     fullName: string;
   } | null = null;
-  public developmentServerState: {
-    tunnelUrl: string;
-    devServerStatus: DevServerStatus;
-    isBuilding: boolean;
-    builtVersion: string;
-    buildStartTime: Date;
-    lastUpdatedTime: Date;
-    buildError?: string;
-  };
   private githubTokenRefreshInterval: NodeJS.Timeout | null = null;
+  // prototype backend state info
+  public prototypeBackend: {
+    type: "supabase" | "convex" | "custom";
+    projectId: string;
+    projectUrl: string | null;
+    metadata: Record<string, unknown>;
+    authenticationKey: string | null;
+  } | null = null;
 
   constructor(
     sandboxService: SandboxService,
@@ -197,6 +206,18 @@ export class NucleateDevelopmentServerService {
     fullName: string;
   }): void {
     this.sourceRepository = sourceRepository;
+  }
+
+  public setPrototypeBackend(
+    backend: {
+      type: "supabase" | "convex" | "custom";
+      projectId: string;
+      projectUrl: string | null;
+      metadata: Record<string, unknown>;
+      authenticationKey: string | null;
+    } | null,
+  ): void {
+    this.prototypeBackend = backend;
   }
 
   /**
@@ -347,8 +368,7 @@ export class NucleateDevelopmentServerService {
       logger.warn("Cannot push to GitHub: no repository attached");
       return;
     }
-    const installationToken =
-      this.githubInstallationToken?.installationToken;
+    const installationToken = this.githubInstallationToken?.installationToken;
     if (!installationToken) {
       logger.warn("Cannot push to GitHub: installation token unavailable");
       return;
@@ -430,8 +450,7 @@ export class NucleateDevelopmentServerService {
     }
 
     try {
-      const installationToken =
-        this.githubInstallationToken?.installationToken;
+      const installationToken = this.githubInstallationToken?.installationToken;
       if (!installationToken) {
         logger.warn(
           "Cannot fetch GitHub changes: installation token unavailable",
@@ -546,7 +565,13 @@ export class NucleateDevelopmentServerService {
   public async prepareSourceRepositoryBranch(
     input: PrepareSourceRepoBranchInput,
     logger: SystemLogger,
-  ): Promise<{ branchName: string; baseBranch: string; pullRequestNumber?: number | null }> {
+  ): Promise<
+    {
+      branchName: string;
+      baseBranch: string;
+      pullRequestNumber?: number | null;
+    }
+  > {
     return prepareSourceRepoBranch(this, input, logger);
   }
 
