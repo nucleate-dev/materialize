@@ -1,0 +1,127 @@
+---
+title: "How to setup Clawdbot in less than 30 minutes"
+excerpt: "A step-by-step guide to setting up your own 24/7 AI assistant on a free server."
+publishedAt: "2026-02-01"
+tags: ["ai", "guide", "clawdbot"]
+category: "guides"
+featured: false
+---
+
+# Clawdbot: The Full Setup in 30 Minutes
+
+Clawdbot is an open-source AI assistant that runs 24/7 on a server. You talk to it through WhatsApp or Telegram. It can perform tasks like clearing your inbox, scheduling meetings, researching companies, following up with leads, writing content, and managing your calendar.
+
+One setup example: it’s connected to GitHub, Google Drive, and Gmail. You can tell it "analyze my site, write a blog post, update my metadata, then draft a LinkedIn post," and it runs the steps. You can also use voice commands.
+
+Another setup example: it can check you into flights, monitor stock prices, and send alerts when something needs attention.
+
+Most AI tools answer questions. Clawdbot is built to run tasks.
+
+## Why this is easier than it looks
+
+People assume it requires terminal knowledge, servers, and API keys. The setup is mostly copy-paste plus a wizard. If you get stuck, you can screenshot the step and ask an LLM what to click.
+
+## The 30-Minute Setup
+
+### Step 1: Get a free server (5 min)
+
+Clawdbot needs to run somewhere 24/7. The AWS free tier works perfectly for this.
+
+1. Go to [aws.amazon.com](https://aws.amazon.com) and create an account.
+2. Search for **EC2** and click **Launch Instance**.
+3. Name it anything you like.
+4. Select **Ubuntu**.
+5. Search "free" for the instance type and pick the **8GB** option (usually t2.micro or t3.micro eligible for free tier).
+6. Click **Launch**.
+7. Click your instance ID, then click **Connect** twice.
+
+You are now in a terminal.
+
+### Step 2: Install Clawdbot (2 min)
+
+Paste this one line into your terminal:
+
+```bash
+curl -fsSL https://clawd.bot/install.sh | bash
+```
+
+Wait 2 minutes. That is the only command you need to run. The rest is handled by the wizard.
+
+### Step 3: Run the wizard (10 min)
+
+The wizard starts automatically.
+
+1. Select **Quick Start**.
+2. Choose **Anthropic**.
+3. Select **Token Paste Setup**.
+4. It will ask you to run a command on your local computer to get a token. Open a new terminal on your machine, paste the command, and copy the token back.
+5. Select **Opus 4.5** as your model.
+6. Select **Telegram Bot** as your channel.
+
+### Step 4: Create your Telegram bot (5 min)
+
+1. Open Telegram.
+2. Search for **@BotFather**.
+3. Send `/newbot`.
+4. Name your bot.
+5. Copy the token and paste it into the wizard.
+6. Search for **@userinfobot**.
+7. Copy your User ID and paste it into the wizard.
+
+This ensures only you can talk to your bot.
+
+### Step 5: Give it an identity (5 min)
+
+Clawdbot will ask you questions in Telegram:
+- What should I call you?
+- What should you call me?
+- What's my purpose?
+- What timezone are you in?
+
+Answer these, and your assistant is ready.
+
+## Quick Tests (5 minutes)
+
+**Inbox Test**
+Tell it: "Check my last 10 emails and tell me which ones actually need a response."
+
+**Research Test**
+Tell it: "Research [company you're curious about] and give me a 3-bullet summary of what they do."
+
+**Reminder Test**
+Tell it: "Remind me to [something you've been putting off] tomorrow at 9am."
+
+## Cost
+
+- **$20/month** Anthropic subscription.
+- **Free** AWS server (Free Tier).
+
+A human VA costs $500-2000/month and sleeps 8 hours. Clawdbot runs 24/7 for roughly $20.
+
+## What to do next
+
+Add Brave Search so it can search the web:
+1. Go to [brave.com/search/api](https://brave.com/search/api).
+2. Get a free API key.
+3. Tell your bot: "Set up Brave Search with this API key."
+
+Connect your tools over time: GitHub, Google Drive, Gmail, Calendar.
+
+Examples of tasks to give it:
+- "Research [company] and give me a one-pager."
+- "Remind me to follow up with [name] in 3 days."
+- "Draft a LinkedIn post about [topic]."
+- "Check my calendar and find time for a call Tuesday."
+- "Summarize this article and draft a thank you email to the author."
+
+If something breaks, tell your bot "fix this" and paste the error. It often fixes itself.
+
+## Voice Use
+
+You do not have to type. Use voice notes on Telegram or WhatsApp. Talk to Clawdbot while you walk or drive.
+
+Some people run multiple agents in Slack. Set off one task, start another. They run in parallel.
+
+## Documentation
+
+Check [clawd.bot](https://clawd.bot) for full documentation.
