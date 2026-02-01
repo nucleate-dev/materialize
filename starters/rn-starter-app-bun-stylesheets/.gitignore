@@ -1,16 +1,16 @@
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
-# dependencies
-node_modules/
+# dependencies (any level)
+**/node_modules/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Expo (any level)
+**/.expo/
+**/dist/
+**/web-build/
+**/expo-env.d.ts
 
-# Native
-.kotlin/
+# Native (any level)
+**/.kotlin/
 *.orig.*
 *.jks
 *.p8
@@ -18,36 +18,36 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
-.metro-health-check*
+# Metro (any level)
+**/.metro-health-check*
 
-# debug
+# debug (any level)
 npm-debug.*
 yarn-debug.*
 yarn-error.*
 
-# macOS
+# macOS (any level)
 .DS_Store
 *.pem
 
-# local env files
-.env
-.env*.local
+# local env files (any level)
+**/.env
+**/.env*.local
 **/.env*
 **/.env*.local
 
-# sensitive local files
-.gitconfig
-.bash_history
+# sensitive local files (any level)
+**/.gitconfig
+**/.bash_history
 
-# typescript
+# typescript (any level)
 *.tsbuildinfo
 
-# Claude Code
-.claude/
+# Claude Code (any level)
+**/.claude/
 
-# NPM cache
-.npm-cache/
+# NPM cache (any level)
+**/.npm-cache/
 
 # supabase (any level)
 **/.supabase/
@@ -58,49 +58,50 @@ yarn-error.*
 **/.convex/
 **/convex/_generated/
 
-# iOS
-ios/Pods/
-ios/build/
+# iOS (any level)
+**/ios/Pods/
+**/ios/build/
 *.xcworkspace
 !default.xcworkspace
 *.xcuserstate
 *.moved-aside
-DerivedData/
+**/DerivedData/
 *.hmap
 *.ipa
 
-# Android
-android/app/build/
-android/app/release/
-android/build/
-android/.gradle/
-android/local.properties
+# Android (any level)
+**/android/app/build/
+**/android/app/release/
+**/android/build/
+**/android/.gradle/
+**/android/local.properties
 *.apk
 
-# Logs
+# Logs (any level)
 *.log
-logs/
+**/logs/
 
-# Testing
-coverage/
-.nyc_output/
+# Testing (any level)
+**/coverage/
+**/.nyc_output/
 
-# Editor directories and files
-.idea/
-.vscode/
+# Editor directories and files (any level)
+**/.idea/
+**/.vscode/
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
+**/.project
+**/.classpath
+**/.settings/
 *.sublime-workspace
 
-# OS
+# OS (any level)
 Thumbs.db
 
-app-example
+# app reset output (any level)
+**/app-example/
 
-# generated native folders
-/ios
-/android
+# generated native folders (any level)
+**/ios/
+**/android/
