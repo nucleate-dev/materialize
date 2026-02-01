@@ -17,7 +17,15 @@ import {
 } from "@/components/ui/popover";
 import { useActiveTeam } from "@/contexts/TeamContext";
 import { cn } from "@/lib/classNames";
-import { Check, ChevronsUpDown, FileText, Figma, Github, Loader2, Link2 } from "lucide-react";
+import {
+  Check,
+  ChevronsUpDown,
+  FileText,
+  Figma,
+  Github,
+  Loader2,
+  Link2,
+} from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 
 interface ContextDropdownProps {
@@ -31,7 +39,10 @@ type GitHubRepo = {
   full_name: string;
 };
 
-export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProps) {
+export default function ContextDropdown({
+  isOpen,
+  onClose,
+}: ContextDropdownProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { activeTeam } = useActiveTeam();
   const comboboxId = useId();
@@ -75,7 +86,7 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
 
         const statusResult = await statusResponse.json();
@@ -92,7 +103,7 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                 headers: {
                   Authorization: `Bearer ${token}`,
                 },
-              }
+              },
             );
 
             const reposResult = await reposResponse.json();
@@ -103,8 +114,8 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                     id: repo.id,
                     name: repo.name,
                     full_name: repo.full_name,
-                  })
-                )
+                  }),
+                ),
               );
             }
           } catch {
@@ -126,9 +137,14 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
     if (!isOpen) return;
 
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         // Don't close if clicking inside the combobox popover
-        const popoverContent = document.querySelector('[data-radix-popper-content-wrapper]');
+        const popoverContent = document.querySelector(
+          "[data-radix-popper-content-wrapper]",
+        );
         if (popoverContent?.contains(event.target as Node)) {
           return;
         }
@@ -166,10 +182,10 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
       className="absolute bottom-full mb-2 right-0 w-80 bg-background border border-border rounded-lg shadow-lg z-50 overflow-hidden"
     >
       {/* Header */}
-      <div className="px-4 py-3 border-b border-border">
-        <div className="text-sm font-medium text-foreground">Context</div>
+      <div className="px-4 py-3 border-b border-border bg-muted/30">
+        <div className="text-base font-semibold text-foreground">Context</div>
         <div className="text-xs text-muted-foreground mt-0.5">
-          Link context for your agent to reference.
+          Link context for Nucleate to reference.
         </div>
       </div>
 
@@ -177,10 +193,13 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
       <div className="p-4">
         <div className="flex items-center gap-2 mb-2">
           <Github className="w-4 h-4 text-muted-foreground" />
-          <span className="text-sm font-medium text-foreground">GitHub Repository</span>
+          <span className="text-sm font-medium text-foreground">
+            GitHub Repository
+          </span>
         </div>
         <p className="text-xs text-muted-foreground mb-3 leading-relaxed">
-          Allow Nucleate to reference an existing repository for themes, components, and screens, and eventually push a PR with desired changes.
+          Reference existing repo for themes, components, and screens. Push PRs
+          with desired changes.
         </p>
 
         {githubStatus.loading ? (
@@ -205,7 +224,7 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                   disabled={isLoadingRepos}
                   className={cn(
                     "h-9 w-full bg-background border border-border text-foreground rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-                    "flex items-center justify-between"
+                    "flex items-center justify-between",
                   )}
                 >
                   <span className="truncate text-left">
@@ -217,7 +236,9 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                     ) : selectedRepo ? (
                       selectedRepo.full_name
                     ) : (
-                      <span className="text-muted-foreground">Select a repository...</span>
+                      <span className="text-muted-foreground">
+                        Select a repository...
+                      </span>
                     )}
                   </span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -242,7 +263,9 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                           key={repo.id}
                           value={repo.full_name}
                           onSelect={() => {
-                            setSelectedRepoId(repo.id === selectedRepoId ? null : repo.id);
+                            setSelectedRepoId(
+                              repo.id === selectedRepoId ? null : repo.id,
+                            );
                             setComboboxOpen(false);
                           }}
                           className="cursor-pointer text-foreground hover:bg-muted"
@@ -250,7 +273,9 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedRepoId === repo.id ? "opacity-100" : "opacity-0"
+                              selectedRepoId === repo.id
+                                ? "opacity-100"
+                                : "opacity-0",
                             )}
                           />
                           {repo.full_name}
@@ -261,27 +286,6 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
                 </Command>
               </PopoverContent>
             </Popover>
-
-            {/* Link Button */}
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleLinkRepository}
-              disabled={!selectedRepoId || isLinking}
-              className="w-full h-8 text-xs"
-            >
-              {isLinking ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin mr-1.5" />
-                  Linking...
-                </>
-              ) : (
-                <>
-                  <Link2 className="w-3 h-3 mr-1.5" />
-                  Link Repository
-                </>
-              )}
-            </Button>
           </div>
         )}
       </div>
@@ -298,7 +302,8 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
           </span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Import designs directly from Figma to guide your prototype&apos;s look and feel.
+          Import designs directly from Figma to guide your prototype&apos;s look
+          and feel.
         </p>
       </div>
 
@@ -307,15 +312,40 @@ export default function ContextDropdown({ isOpen, onClose }: ContextDropdownProp
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <FileText className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm font-medium text-foreground">Google Docs</span>
+            <span className="text-sm font-medium text-foreground">
+              Google Docs
+            </span>
           </div>
           <span className="text-[10px] font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
             Coming Soon
           </span>
         </div>
         <p className="text-xs text-muted-foreground leading-relaxed">
-          Link product specs and documentation to provide additional context for your agent.
+          Link product specs and documentation to provide additional context for
+          your agent.
         </p>
+      </div>
+
+      {/* Footer with Add Context Button */}
+      <div className="p-4 border-t border-border bg-muted/30">
+        <Button
+          type="button"
+          onClick={handleLinkRepository}
+          disabled={!selectedRepoId || isLinking}
+          className="w-full h-9"
+        >
+          {isLinking ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Link2 className="w-4 h-4 mr-2" />
+              Add Context
+            </>
+          )}
+        </Button>
       </div>
     </div>
   );
