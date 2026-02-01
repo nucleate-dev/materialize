@@ -61,7 +61,7 @@ export async function handleStartDevServerImpl(
   try {
     const { data: sensitiveMetadata, error: metadataError } =
       await supabaseClient
-        .from("prototype_sensitive_metadata")
+        .from("prototype_source_repositories")
         .select("source_repo_id")
         .eq("prototype_id", prototype_id)
         .maybeSingle();
@@ -278,7 +278,7 @@ export async function handleStartDevServerImpl(
     const { data: githubRepo, error: githubRepoError } =
       await developmentServerService.supabaseClientService
         .getClient()
-        .from("github_repositories")
+        .from("prototype_github_repositories")
         .select("*")
         .eq("github_repo_id", prototypeRow.github_repo_id!)
         .single();

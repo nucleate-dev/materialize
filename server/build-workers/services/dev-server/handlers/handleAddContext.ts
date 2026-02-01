@@ -94,7 +94,7 @@ export async function handleAddContextImpl(
 
   const { error: insertError } = await developmentServerService
     .supabaseClientService.getClient()
-    .from("prototype_sensitive_metadata")
+    .from("prototype_source_repositories")
     .insert({
       prototype_id: prototypeId,
       source_repo_id: github.github_repo_id,

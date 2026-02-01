@@ -415,7 +415,7 @@ const MaterializeRenderSection = forwardRef<
 
         try {
           const { data, error } = await supabase
-            .from("github_repositories")
+            .from("prototype_github_repositories")
             .select("html_url")
             .eq("prototype_id", prototypeId)
             .maybeSingle();

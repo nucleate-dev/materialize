@@ -226,7 +226,7 @@ export async function handleGitHubWebhook(
 
             // Check if this repository exists in our database
             const { data: existingRepo } = await supabaseServiceClient
-                .from("github_repositories")
+                .from("prototype_github_repositories")
                 .select("github_repo_id, full_name")
                 .eq("github_repo_id", githubRepoId)
                 .maybeSingle();
@@ -287,7 +287,7 @@ export async function handleGitHubWebhook(
                 // Only update if we have data to update
                 if (Object.keys(updateData).length > 0) {
                     const { error: updateError } = await supabaseServiceClient
-                        .from("github_repositories")
+                        .from("prototype_github_repositories")
                         .update(updateData)
                         .eq("github_repo_id", githubRepoId);
 
@@ -378,7 +378,7 @@ export async function handleGitHubWebhook(
             } else if (action === "deleted") {
                 // Repository deleted on GitHub - delete from our database
                 const { error: deleteError } = await supabaseServiceClient
-                    .from("github_repositories")
+                    .from("prototype_github_repositories")
                     .delete()
                     .eq("github_repo_id", githubRepoId);
 
