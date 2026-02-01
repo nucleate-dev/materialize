@@ -115,12 +115,80 @@ export async function handleAddContextImpl(
     };
   }
 
-  // TODO: Finish add-context flow (fetch repo details, set source repo state, etc.)
-  reply.code(HTTP_STATUS.OK);
-  return {
-    data: {
-      message: "Context linked",
-    },
-    error: null,
-  };
+  if (!jwtToken) {
+    reply.code(HTTP_STATUS.UNAUTHORIZED);
+    return {
+      data: null,
+      error: {
+        error: "Unauthorized",
+        message: "Missing Authorization header",
+      },
+    };
+  }
+
+  const teamId = authResult.prototype.team_id;
+  if (!teamId) {
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Missing team id",
+        message: "Unable to resolve team id for this prototype",
+      },
+    };
+  }
+
+  try {
+    const sourceRepoResponse = await developmentServerService
+      .sandboxOrchestrationInitiatorService.fetchGitHubSourceRepo(
+        prototypeId,
+        teamId,
+        github.github_repo_id,
+        jwtToken,
+      );
+
+    developmentServerService.setSourceRepository({
+      githubRepoId: sourceRepoResponse.source_repo.github_repo_id,
+      installationId: sourceRepoResponse.source_repo.installation_id,
+      repositoryUrl: sourceRepoResponse.source_repo.repository_url,
+      repositoryOwner: sourceRepoResponse.source_repo.repository_owner,
+      repositoryName: sourceRepoResponse.source_repo.repository_name,
+      defaultBranch: sourceRepoResponse.source_repo.default_branch,
+      fullName: sourceRepoResponse.source_repo.full_name,
+    });
+
+    if (!developmentServerService.githubInstallationToken) {
+      developmentServerService.githubInstallationToken = {
+        installationToken: sourceRepoResponse.installation_token,
+        tokenExpiresAt: new Date(
+          Date.now() + 50 * 60 * 1000,
+        ).toISOString(),
+      };
+      developmentServerService.startGitHubTokenRefreshJob(prototypeId);
+    }
+
+    reply.code(HTTP_STATUS.OK);
+    return {
+      data: {
+        message: "Context linked",
+      },
+      error: null,
+    };
+  } catch (error) {
+    request.log2.error(
+      error instanceof Error ? error : new Error(String(error)),
+      "Failed to fetch GitHub source repository after linking context",
+      { prototypeId, githubRepoId: github.github_repo_id, teamId },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to link context",
+        message: error instanceof Error
+          ? error.message
+          : "Failed to fetch source repository details",
+      },
+    };
+  }
 }
