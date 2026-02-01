@@ -132,6 +132,22 @@ export interface PublicDevServerRefetchEnvSuccessResponse {
   env_var_count: number;
 }
 
+export interface PublicDevServerAddBackendRequest {
+  type: "supabase" | "convex" | "custom";
+  project_id: string;
+  project_url?: string | null;
+  metadata?: Record<string, unknown>;
+}
+
+export interface PublicDevServerAddBackendSuccessResponse {
+  message: string;
+  backend: {
+    type: "supabase" | "convex" | "custom";
+    project_id: string;
+    project_url: string | null;
+  };
+}
+
 export interface PublicConnectGitHubSuccessResponse {
   message: string;
   repository_url: string;

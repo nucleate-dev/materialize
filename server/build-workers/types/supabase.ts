@@ -827,6 +827,50 @@ export type Database = {
           },
         ]
       }
+      prototype_backends: {
+        Row: {
+          backend_type: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at: string
+          id: string
+          metadata: Json
+          prototype_id: string
+          provider_integration_id: string | null
+          provider_project_id: string
+          provider_project_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          backend_type: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json
+          prototype_id: string
+          provider_integration_id?: string | null
+          provider_project_id: string
+          provider_project_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          backend_type?: Database["public"]["Enums"]["prototype_backend_type"]
+          created_at?: string
+          id?: string
+          metadata?: Json
+          prototype_id?: string
+          provider_integration_id?: string | null
+          provider_project_id?: string
+          provider_project_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_backends_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_build_history: {
         Row: {
           build_key: string
@@ -1775,6 +1819,7 @@ export type Database = {
       connector_status: "active" | "disconnected" | "token_expired"
       design_style: "tamagui" | "stylesheets" | "nativewind" | "custom"
       file_type: "text" | "asset"
+      prototype_backend_type: "supabase"
       prototype_build_status: "in_progress" | "success" | "failure"
       prototype_framework:
         | "mobile_expo_react_native"
@@ -1923,6 +1968,7 @@ export const Constants = {
       connector_status: ["active", "disconnected", "token_expired"],
       design_style: ["tamagui", "stylesheets", "nativewind", "custom"],
       file_type: ["text", "asset"],
+      prototype_backend_type: ["supabase"],
       prototype_build_status: ["in_progress", "success", "failure"],
       prototype_framework: [
         "mobile_expo_react_native",

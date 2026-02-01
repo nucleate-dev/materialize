@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-01-29T07:58:49.690Z
+// Last synced: 2026-02-01T02:21:22.800Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -380,6 +380,17 @@ export interface RefreshGitHubInstallationTokenSuccessResponse {
 export interface RefreshGitHubInstallationTokenErrorResponse {
   error: string;
   message: string;
+}
+
+export interface GetSupabaseOAuthTokenRequestBody {
+  prototype_id: string;
+}
+
+export interface GetSupabaseOAuthTokenSuccessResponse {
+  access_token: string;
+  expires_at: string | null;
+  refreshed: boolean;
+  integration_id: string;
 }
 
 // ============================================================================

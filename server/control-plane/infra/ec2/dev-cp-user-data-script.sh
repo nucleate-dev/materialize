@@ -6,7 +6,7 @@
 set -euxo pipefail
 
 # Ensure HOME is set for non-interactive shells (cloud-init uses set -u).
-: "${HOME:=/root}"
+export HOME="${HOME:-/root}"
 
 # Variables - these should match the deploy script
 USER="ec2-user"
@@ -18,6 +18,10 @@ CW_LOG_FILE_BW="${BUILD_WORKERS_BASE}/dev-server.log"
 CW_LOG_GROUP="/ec2/materialize/control-plane-dev"
 
 echo "==> Starting EC2 user data script for Materialize Control Plane Dev"
+
+# 0. Schedule auto-termination in 3 hours
+echo "==> Scheduling auto-termination in 3 hours..."
+shutdown -h +180
 
 # 1. Install system prerequisites
 echo "==> Installing system prerequisites..."
@@ -196,7 +200,8 @@ ldconfig /usr/local/lib
 
 # 3. Install Bun runtime for Vite projects (shared install for non-root users)
 echo "==> Installing Bun runtime..."
-BUN_INSTALL=/usr/local/bun curl -fsSL https://bun.sh/install | bash
+export BUN_INSTALL=/usr/local/bun
+curl -fsSL https://bun.sh/install | bash
 ln -sf /usr/local/bun/bin/bun /usr/local/bin/bun
 ln -sf /usr/local/bun/bin/bunx /usr/local/bin/bunx
 chmod -R a+rX /usr/local/bun
@@ -298,10 +303,6 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
   -s
 
 echo "✅ CloudWatch Agent configured and started successfully"
-
-# 8. Schedule auto-termination in 3 hours
-echo "==> Scheduling auto-termination in 3 hours..."
-shutdown -h +180
 
 echo "==> EC2 user data script completed successfully"
 echo "Instance is ready for application deployment"

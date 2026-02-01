@@ -106,6 +106,7 @@ import {
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
+import { CloudIntegrationsDropdown } from "./CloudIntegrationsDropdown";
 
 // Import PreviewCanvas for infinite canvas mode
 import type { CanvasStateData, PreviewCanvasRef, AIActionType, GlobalAIAction } from "./canvas";
@@ -285,6 +286,8 @@ interface MaterializeRenderSectionProps {
   onScreenAIAction?: (screenId: number, path: string, action: AIActionType, screenshotDataUrl?: string) => void;
   // Global AI action callback - canvas-wide actions like PRD generation
   onGlobalAIAction?: (action: GlobalAIAction, screenshotDataUrls?: string[]) => void;
+  // Callback to open team settings dialog (for Supabase integration)
+  onOpenTeamSettings?: (tab: "supabase-backend") => void;
 }
 
 export interface MaterializeRenderSectionRef {
@@ -345,6 +348,7 @@ const MaterializeRenderSection = forwardRef<
       showToolbar = true,
       onScreenAIAction,
       onGlobalAIAction,
+      onOpenTeamSettings,
     },
     ref,
   ) => {
@@ -3864,6 +3868,15 @@ const MaterializeRenderSection = forwardRef<
                       </Tooltip>
                     </TooltipProvider>
                   ))}
+
+                {/* Cloud Integrations (Supabase) */}
+                {!isReadOnlyView && (
+                  <CloudIntegrationsDropdown
+                    prototypeId={prototypeId}
+                    normalizedSandboxUrl={sandbox_url}
+                    onOpenTeamSettings={onOpenTeamSettings}
+                  />
+                )}
 
                 {/* GitHub - Icon only, always visible */}
                 {!isReadOnlyView && (

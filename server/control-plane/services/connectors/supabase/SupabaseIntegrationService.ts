@@ -126,12 +126,17 @@ export class SupabaseIntegrationService {
         );
 
         app.post<{ Body: SupabaseCreateProjectRequestBody }>(
-            "/connectors/supabase/projects",
+            "/connectors/supabase/create-project",
             {
                 schema: {
                     body: {
                         type: "object",
-                        required: ["teamId", "organizationId", "name", "region"],
+                        required: [
+                            "teamId",
+                            "organizationId",
+                            "name",
+                            "region",
+                        ],
                         properties: {
                             teamId: {
                                 type: "string",

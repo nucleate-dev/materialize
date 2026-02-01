@@ -4,6 +4,8 @@ import {
   APIResponse,
   EndChatRequestBody,
   EndChatResponse,
+  GetSupabaseOAuthTokenRequestBody,
+  GetSupabaseOAuthTokenSuccessResponse,
   RefreshGitHubInstallationTokenErrorResponse,
   RefreshGitHubInstallationTokenRequestBody,
   RefreshGitHubInstallationTokenSuccessResponse,
@@ -15,6 +17,7 @@ import { SystemLogger } from "../../loggers/SystemLogger.js";
 import { handleStartChatImpl } from "./handleStartChat.js";
 import { handleEndChatImpl } from "./handleEndChat.js";
 import { handleRefreshGitHubInstallationToken } from "./handleRefreshGitHubToken.js";
+import { handleGetSupabaseOAuthToken } from "./handleGetSupabaseOAuthToken.js";
 
 export class OrchestrationService {
   private cache: GlideClient;
@@ -82,6 +85,25 @@ export class OrchestrationService {
       },
       this.handleRefreshGitHubInstallationToken.bind(this),
     );
+
+    // POST /orchestration/get-supabase-oauth-token
+    app.post<{
+      Body: GetSupabaseOAuthTokenRequestBody;
+    }>(
+      "/orchestration/get-supabase-oauth-token",
+      {
+        schema: {
+          body: {
+            type: "object",
+            required: ["prototype_id"],
+            properties: {
+              prototype_id: { type: "string" },
+            },
+          },
+        },
+      },
+      this.handleGetSupabaseOAuthToken.bind(this),
+    );
   }
 
   private async handleStartChat(
@@ -110,5 +132,14 @@ export class OrchestrationService {
     >
   > {
     return handleRefreshGitHubInstallationToken(request, reply, this.cache);
+  }
+
+  private async handleGetSupabaseOAuthToken(
+    request: FastifyRequest<{ Body: GetSupabaseOAuthTokenRequestBody }>,
+    reply: FastifyReply,
+  ): Promise<
+    APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
+  > {
+    return handleGetSupabaseOAuthToken(request, reply, this.cache);
   }
 }

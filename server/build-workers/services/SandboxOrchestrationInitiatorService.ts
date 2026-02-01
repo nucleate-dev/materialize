@@ -4,6 +4,7 @@ import { SystemLogger } from "../loggers/SystemLogger.js";
 import {
   APIResponse,
   EndChatResponse,
+  GetSupabaseOAuthTokenSuccessResponse,
   StandardErrorResponse,
   StartChatResponse,
 } from "../types/ControlPlaneTypes.js";
@@ -134,6 +135,92 @@ export class SandboxOrchestrationInitiatorService {
       this.logger.error(
         error instanceof Error ? error : new Error(String(error)),
         "Failed to refresh GitHub installation token",
+        { prototypeId },
+      );
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get a Supabase OAuth access token for the given prototype.
+   * Makes a request to the control plane orchestration endpoint.
+   *
+   * @param prototypeId - The prototype ID to get a Supabase OAuth token for
+   * @param userJwtToken - The user's JWT token (get fresh token from SupabaseClientService)
+   * @returns The Supabase OAuth access token payload
+   * @throws Error if the request fails or tokens are not set
+   */
+  public async getSupabaseOAuthToken(
+    prototypeId: string,
+    userJwtToken: string,
+  ): Promise<GetSupabaseOAuthTokenSuccessResponse> {
+    if (!this.orchestrationToken) {
+      throw new Error("Orchestration token not set");
+    }
+
+    const serverEndpoint = process.env.NUCLEATE_SERVER_ENDPOINT;
+    if (!serverEndpoint) {
+      throw new Error("NUCLEATE_SERVER_ENDPOINT not set in environment");
+    }
+
+    try {
+      const response = await axios.post<
+        APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
+      >(
+        `${serverEndpoint}/orchestration/get-supabase-oauth-token`,
+        { prototype_id: prototypeId },
+        {
+          headers: {
+            "x-orchestration-token": this.orchestrationToken,
+            Authorization: `Bearer ${userJwtToken}`,
+            "Content-Type": "application/json",
+          },
+          timeout: 10000, // 10 second timeout
+        },
+      );
+
+      const payload = response.data;
+
+      if (payload.error) {
+        throw new Error(
+          `Failed to get Supabase OAuth token: ${payload.error.message}`,
+        );
+      }
+
+      if (!payload.data) {
+        throw new Error(
+          "Failed to get Supabase OAuth token: No data returned",
+        );
+      }
+
+      return payload.data;
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorMessage =
+          error.response?.data?.error?.message ||
+          error.message ||
+          "Unknown error";
+        const statusCode = error.response?.status;
+
+        this.logger.error(
+          new Error(errorMessage),
+          "Failed to get Supabase OAuth token",
+          {
+            prototypeId,
+            statusCode,
+            errorData: error.response?.data,
+          },
+        );
+
+        throw new Error(
+          `Failed to get Supabase OAuth token: ${errorMessage} (status: ${statusCode})`,
+        );
+      }
+
+      this.logger.error(
+        error instanceof Error ? error : new Error(String(error)),
+        "Failed to get Supabase OAuth token",
         { prototypeId },
       );
 

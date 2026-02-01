@@ -22,6 +22,11 @@ import { NextJsReactAdapter } from "../adapters/NextJsReactAdapter.js";
 import { ViteReactAdapter } from "../adapters/ViteReactAdapter.js";
 import { ExpoReactNativeBunAdapter } from "../adapters/ExpoReactNativeBunAdapter.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
+import type { Database } from "../../../types/supabase.js";
+
+type PrototypeFramework =
+  | Database["public"]["Enums"]["prototype_framework"]
+  | "mobile_expo_react_native_bun";
 
 export async function handleStartDevServerImpl(
   request: FastifyRequest<{ Body: PublicStartDevServerRequest }>,
@@ -121,8 +126,9 @@ export async function handleStartDevServerImpl(
   const hasGitHubRepo = prototypeRow.github_repo_id !== null;
 
   // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
-  const resolvedFramework = developmentServerService.prototypeFramework ??
-    DEFAULT_PROTOTYPE_FRAMEWORK;
+  const resolvedFramework =
+    (developmentServerService.prototypeFramework ??
+      DEFAULT_PROTOTYPE_FRAMEWORK) as PrototypeFramework;
   if (resolvedFramework === "mobile_expo_react_native_bun") {
     developmentServerService.developmentServerAdapter =
       new ExpoReactNativeBunAdapter(
@@ -164,9 +170,9 @@ export async function handleStartDevServerImpl(
 
   if (
     developmentServerService.developmentServerState.devServerStatus ===
-      DevServerStatus.RUNNING ||
+    DevServerStatus.RUNNING ||
     developmentServerService.developmentServerState.devServerStatus ===
-      DevServerStatus.STARTING
+    DevServerStatus.STARTING
   ) {
     reply.code(HTTP_STATUS.CONFLICT);
     return {
@@ -307,6 +313,93 @@ export async function handleStartDevServerImpl(
     }
   }
 
+  // 2.5 Fetch prototype backend and hydrate backend state (if configured)
+  const { data: prototypeBackend, error: prototypeBackendError } =
+    await developmentServerService.supabaseClientService
+      .getClient()
+      .from("prototype_backends")
+      .select(
+        "backend_type, provider_project_id, provider_project_url, metadata",
+      )
+      .eq("prototype_id", prototype_id)
+      .maybeSingle();
+
+  if (prototypeBackendError) {
+    request.log2.error(
+      prototypeBackendError,
+      "Failed to fetch prototype backend",
+      { prototypeId: prototype_id },
+    );
+    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+    return {
+      data: null,
+      error: {
+        error: "Failed to fetch prototype backend",
+        message: prototypeBackendError.message,
+      },
+    };
+  }
+
+  if (prototypeBackend) {
+    let authenticationKey: string | null = null;
+    if (prototypeBackend.backend_type === "supabase") {
+      const userJwtToken = developmentServerService.supabaseClientService
+        .getCurrentJwtToken();
+      if (!userJwtToken) {
+        reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: "Failed to get Supabase OAuth token",
+            message: "User JWT token not available",
+          },
+        };
+      }
+
+      try {
+        const supabaseToken = await developmentServerService
+          .sandboxOrchestrationInitiatorService.getSupabaseOAuthToken(
+            prototype_id,
+            userJwtToken,
+          );
+        authenticationKey = supabaseToken.access_token;
+        process.env.USER_SUPABASE_OAUTH_TOKEN = supabaseToken.access_token;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        request.log2.error(
+          new Error(message),
+          "Failed to get Supabase OAuth token",
+          { prototypeId: prototype_id },
+        );
+        reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        return {
+          data: null,
+          error: {
+            error: "Failed to get Supabase OAuth token",
+            message,
+          },
+        };
+      }
+    }
+
+    const metadata =
+      prototypeBackend.metadata &&
+        typeof prototypeBackend.metadata === "object" &&
+        !Array.isArray(prototypeBackend.metadata)
+        ? (prototypeBackend.metadata as Record<string, unknown>)
+        : {};
+
+    developmentServerService.setPrototypeBackend({
+      type: prototypeBackend.backend_type,
+      projectId: prototypeBackend.provider_project_id,
+      projectUrl: prototypeBackend.provider_project_url,
+      metadata,
+      authenticationKey,
+    });
+  } else {
+    developmentServerService.setPrototypeBackend(null);
+  }
+
   const envSyncResult = await syncPrototypeEnvVarsToDisk({
     prototypeId: prototype_id,
     supabaseClientService: developmentServerService.supabaseClientService,
@@ -323,6 +416,23 @@ export async function handleStartDevServerImpl(
       },
     };
   }
+
+  if (developmentServerService.prototypeBackend) {
+    const backendSyncResult = await developmentServerService
+      .syncBackendEnvVarsToConnectedBackend(request.log2);
+    if (!backendSyncResult.success) {
+      reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      return {
+        data: null,
+        error: {
+          error: "Failed to sync backend environment variables",
+          message: backendSyncResult.error ??
+            "Failed to sync backend env vars",
+        },
+      };
+    }
+  }
+
   await restoreClaudeSessions(
     prototype_id,
     request.log2,
@@ -622,8 +732,7 @@ async function cloneGithubRepository(
   // Clone the repository directly into WORK_DIR
   // Use find to remove all contents including hidden files
   const cloneCommand =
-    `cd ${WORK_DIR} && find . -mindepth 1 -delete && git clone ${authenticatedUrl} . && git config user.email "${
-      userRow?.email ?? "noreply@nucleate.dev"
+    `cd ${WORK_DIR} && find . -mindepth 1 -delete && git clone ${authenticatedUrl} . && git config user.email "${userRow?.email ?? "noreply@nucleate.dev"
     }" && git config user.name "${userRow?.name ?? "Nucleate User"}"`;
 
   developmentServerService.terminalService.sendInput(
