@@ -31,7 +31,6 @@ import {
   Link2,
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
-import { toast } from "sonner";
 
 interface ContextDropdownProps {
   isOpen: boolean;
@@ -63,10 +62,12 @@ export default function ContextDropdown({
   const [selectedRepoId, setSelectedRepoId] = useState<number | null>(null);
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
 
   // Fetch GitHub status and repositories when dropdown opens
   useEffect(() => {
     if (!isOpen) return;
+    setInlineError(null);
 
     async function fetchGitHubData() {
       if (!activeTeam?.id) {
@@ -173,13 +174,14 @@ export default function ContextDropdown({
     if (!selectedRepoId || !normalizedTunnelUrl) return;
 
     setIsLinking(true);
+    setInlineError(null);
 
     try {
       const session = await supabase.auth.getSession();
       const token = session.data.session?.access_token;
 
       if (!token) {
-        toast.error("Authentication required to link context");
+        setInlineError("Authentication required to link context.");
         return;
       }
 
@@ -211,14 +213,14 @@ export default function ContextDropdown({
       if (!response.ok || result.error || !result.data) {
         const message =
           result.error?.message ?? "Failed to link GitHub context";
-        toast.error(message);
+        setInlineError(message);
         return;
       }
 
-      toast.success("Context linked");
+      setInlineError(null);
       onClose();
     } catch {
-      toast.error("Failed to link GitHub context");
+      setInlineError("Failed to link GitHub context.");
     } finally {
       setIsLinking(false);
     }
@@ -382,6 +384,11 @@ export default function ContextDropdown({
 
       {/* Footer with Add Context Button */}
       <div className="p-4 border-t border-border bg-muted/30">
+        {inlineError && (
+          <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            {inlineError}
+          </div>
+        )}
         <Button
           type="button"
           onClick={handleLinkRepository}
