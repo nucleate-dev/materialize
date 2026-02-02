@@ -4,7 +4,11 @@
 export type PreviewMode = "mobile" | "web" | "tablet";
 
 /**
- * Layout mode for the canvas
+ * Layout mode for the canvas (wire format, used in persistence and MCP tools)
+ * - "grid": Standard grid layout (Regular Mode in UI)
+ * - "freeform": Infinite canvas with pan/zoom (Canvas Mode in UI)
+ *
+ * Note: In the UI, "grid" maps to Regular Mode and "freeform" maps to Canvas Mode
  */
 export type LayoutMode = "grid" | "freeform";
 
@@ -91,10 +95,8 @@ export interface PreviewCanvasRef {
   removeScreen: (screenId: number) => void;
   /** Replace all screens with new configuration */
   setScreens: (screens: ScreenConfig[]) => void;
-  /** Reorder screens in grid mode */
+  /** Reorder screens */
   reorderScreens: (screenOrder: number[]) => void;
-  /** Set the layout mode */
-  setLayoutMode: (mode: LayoutMode) => void;
   /** Get the current canvas state for persistence (returns null if editor not ready) */
   getState: () => CanvasStateData | null;
   /** Restore canvas state from database */

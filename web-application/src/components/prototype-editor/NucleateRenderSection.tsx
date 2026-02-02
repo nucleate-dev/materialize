@@ -58,10 +58,12 @@ import {
   ExternalLink,
   Eye,
   Hammer,
+  LayoutGrid,
   Loader2,
   MessageSquare,
   Monitor,
   MoreVertical,
+  Move,
   Palette,
   Pencil,
   Plus,
@@ -444,6 +446,13 @@ const MaterializeRenderSection = forwardRef<
     // Check if canvas preview mode is enabled (infinite canvas like Figma)
     const isCanvasPreviewEnabled =
       posthog?.isFeatureEnabled("canvas-preview-mode") ?? false;
+
+    // Layout mode state: "grid" = standard layout (Regular Mode), "freeform" = infinite canvas (Canvas Mode)
+    // This is only relevant when isCanvasPreviewEnabled is true
+    // Uses wire format values for consistency with persistence and MCP tools
+    const [canvasLayoutMode, setCanvasLayoutMode] = useState<"grid" | "freeform">(
+      initialCanvasState?.layoutMode === "freeform" ? "freeform" : "grid"
+    );
 
     // Canvas ref for infinite canvas mode
     const canvasRef = useRef<PreviewCanvasRef>(null);
@@ -1316,13 +1325,13 @@ const MaterializeRenderSection = forwardRef<
             setPreviewMode(data.previewMode);
           }
 
-          // Use canvas ref if in canvas mode
-          if (isCanvasPreviewEnabled && canvasRef.current) {
-            // Handle layout mode change if specified
-            if (data.layoutMode) {
-              canvasRef.current.setLayoutMode(data.layoutMode);
-            }
+          // Handle layout mode change if specified (applies when canvas feature flag is on)
+          if (isCanvasPreviewEnabled && data.layoutMode) {
+            setCanvasLayoutMode(data.layoutMode);
+          }
 
+          // Use canvas ref if in freeform/canvas mode (infinite canvas)
+          if (isCanvasPreviewEnabled && canvasLayoutMode === "freeform" && canvasRef.current) {
             switch (data.action) {
               case "add":
                 if (data.path) {
@@ -4199,40 +4208,76 @@ const MaterializeRenderSection = forwardRef<
             transition: isResizingTerminal ? "none" : "height 0.2s ease-in-out",
           }}
         >
-          {/* Floating Add Screen button - top right of canvas */}
-          {!isReadOnlyView &&
-            isPreviewView &&
-            (isCanvasPreviewEnabled ? (
-              <div className="absolute top-3 right-3 z-20">
+          {/* Floating controls - top right of preview */}
+          {!isReadOnlyView && isPreviewView && (
+            <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+              {/* Layout mode toggle - only when canvas feature flag is on */}
+              {isCanvasPreviewEnabled && (
+                <div className="flex items-center bg-accent border border-border rounded-lg p-0.5">
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setCanvasLayoutMode("grid")}
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors",
+                            canvasLayoutMode === "grid"
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          aria-label="Grid layout"
+                          aria-pressed={canvasLayoutMode === "grid"}
+                        >
+                          <LayoutGrid className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>Grid layout</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => setCanvasLayoutMode("freeform")}
+                          className={cn(
+                            "p-1.5 rounded-md transition-colors",
+                            canvasLayoutMode === "freeform"
+                              ? "bg-background text-foreground shadow-sm"
+                              : "text-muted-foreground hover:text-foreground"
+                          )}
+                          aria-label="Canvas layout"
+                          aria-pressed={canvasLayoutMode === "freeform"}
+                        >
+                          <Move className="w-4 h-4" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom">
+                        <p>Canvas layout</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+              )}
+
+              {/* Add Screen button */}
+              {(isCanvasPreviewEnabled ? canvasLayoutMode === "freeform" : previewMode === "mobile") && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleAddCanvasScreen}
+                  onClick={isCanvasPreviewEnabled && canvasLayoutMode === "freeform" ? handleAddCanvasScreen : handleAddMobileScreen}
                   className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Add another screen"
                   disabled={!viewing_url}
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
-              </div>
-            ) : (
-              previewMode === "mobile" && (
-                <div className="absolute top-3 right-3 z-20">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleAddMobileScreen}
-                    className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
-                    title="Add another screen"
-                    disabled={!viewing_url}
-                  >
-                    <Plus className="h-3.5" />
-                  </Button>
-                </div>
-              )
-            ))}
+              )}
+            </div>
+          )}
           {isPreviewView ? (
-            isCanvasPreviewEnabled ? (
+            isCanvasPreviewEnabled && canvasLayoutMode === "freeform" ? (
               <PreviewCanvas
                 ref={canvasRef}
                 viewingUrl={viewing_url}

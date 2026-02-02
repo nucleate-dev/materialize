@@ -10,8 +10,6 @@ import {
   Sparkles,
   FileText,
   GitCompare,
-  LayoutGrid,
-  Move,
   Check,
 } from "lucide-react";
 import {
@@ -33,7 +31,7 @@ import {
 } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import type { GlobalAIAction, LayoutMode } from "./types";
+import type { GlobalAIAction } from "./types";
 
 export type CanvasToolMode = "select" | "pan";
 export type { GlobalAIAction };
@@ -47,13 +45,12 @@ interface CanvasToolbarProps {
   onZoomToFit: () => void;
   onZoomChange?: (zoom: number) => void;
   readOnly?: boolean;
-  layoutMode?: LayoutMode;
-  onLayoutModeChange?: (mode: LayoutMode) => void;
   onGlobalAIAction?: (action: GlobalAIAction) => void;
 }
 
 /**
  * Floating toolbar for canvas controls - Figma-style
+ * Used in infinite canvas mode for pan/zoom controls and tool selection
  */
 export const CanvasToolbar = memo(function CanvasToolbar({
   toolMode,
@@ -64,8 +61,6 @@ export const CanvasToolbar = memo(function CanvasToolbar({
   onZoomToFit,
   onZoomChange,
   readOnly = false,
-  layoutMode = "grid",
-  onLayoutModeChange,
   onGlobalAIAction,
 }: CanvasToolbarProps) {
   const [isAIMenuOpen, setIsAIMenuOpen] = useState(false);
@@ -103,59 +98,8 @@ export const CanvasToolbar = memo(function CanvasToolbar({
       role="toolbar"
       aria-label="Canvas controls"
     >
-      {/* Layout Mode Toggle */}
-      {!readOnly && onLayoutModeChange && (
-        <>
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onLayoutModeChange("grid")}
-                  aria-label="Grid layout"
-                  aria-pressed={layoutMode === "grid"}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    layoutMode === "grid"
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" aria-hidden="true" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Grid layout</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <TooltipProvider delayDuration={200}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onLayoutModeChange("freeform")}
-                  aria-label="Freeform layout"
-                  aria-pressed={layoutMode === "freeform"}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    layoutMode === "freeform"
-                      ? "bg-accent text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                  }`}
-                >
-                  <Move className="w-4 h-4" aria-hidden="true" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="top">
-                <p>Freeform layout</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <div className="h-5 w-px bg-border mx-1" aria-hidden="true" />
-        </>
-      )}
-
-      {/* Tool Selection - only in freeform mode */}
-      {!readOnly && layoutMode === "freeform" && (
+      {/* Tool Selection */}
+      {!readOnly && (
         <>
           <TooltipProvider delayDuration={200}>
             <Tooltip>
