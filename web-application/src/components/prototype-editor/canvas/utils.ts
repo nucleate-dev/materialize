@@ -2,12 +2,20 @@ import { CANVAS, FRAME_DIMENSIONS } from "./constants";
 
 /**
  * Resolve relative path against base URL for iframe src
+ * Preserves authentication tokens from the base URL
  */
 export function resolveIframeSrc(baseUrl: string, path: string): string {
   if (!baseUrl) return "";
 
   try {
-    return new URL(path, baseUrl).toString();
+    const base = new URL(baseUrl);
+    const token = base.searchParams.get("token");
+    const resolved = new URL(path || "/", base);
+    // Preserve token from base URL if not already present
+    if (token && !resolved.searchParams.has("token")) {
+      resolved.searchParams.set("token", token);
+    }
+    return resolved.toString();
   } catch {
     try {
       return new URL(baseUrl).toString();
