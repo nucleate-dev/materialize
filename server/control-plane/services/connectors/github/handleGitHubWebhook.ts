@@ -225,13 +225,12 @@ export async function handleGitHubWebhook(
             });
 
             // Check if this repository exists in our database
-            const { data: existingRepo } = await supabaseServiceClient
-                .from("prototype_github_repositories")
-                .select("github_repo_id, full_name")
-                .eq("github_repo_id", githubRepoId)
-                .maybeSingle();
+            const { data: existingRepos } = await supabaseServiceClient
+                .from("github_repositories")
+                .select("github_repo_id, team_id, full_name")
+                .eq("github_repo_id", githubRepoId);
 
-            if (!existingRepo) {
+            if (!existingRepos || existingRepos.length === 0) {
                 // Repository not tracked by us, ignore
                 request.log2.info(
                     "Repository event for untracked repository, ignoring",
@@ -286,24 +285,26 @@ export async function handleGitHubWebhook(
 
                 // Only update if we have data to update
                 if (Object.keys(updateData).length > 0) {
-                    const { error: updateError } = await supabaseServiceClient
-                        .from("prototype_github_repositories")
-                        .update(updateData)
-                        .eq("github_repo_id", githubRepoId);
+                    const { error: updateCanonicalError } =
+                        await supabaseServiceClient
+                            .from("github_repositories")
+                            .update(updateData)
+                            .eq("github_repo_id", githubRepoId);
 
-                    if (updateError) {
+                    if (updateCanonicalError) {
                         request.log2.error(
-                            updateError,
-                            "Failed to update repository metadata from webhook",
+                            updateCanonicalError,
+                            "Failed to update canonical repository metadata from webhook",
                             { githubRepoId, action, updateData },
                         );
                     } else {
+                        const previousFullName = existingRepos[0]?.full_name;
                         request.log2.info(
                             "Successfully updated repository metadata from webhook",
                             {
                                 githubRepoId,
                                 action,
-                                oldFullName: existingRepo.full_name,
+                                oldFullName: previousFullName,
                                 newFullName: updateData.full_name,
                                 updatedFields: Object.keys(updateData),
                             },
@@ -314,7 +315,7 @@ export async function handleGitHubWebhook(
                             (action === "renamed" ||
                                 action === "transferred") &&
                             updateData.full_name &&
-                            existingRepo.full_name !== updateData.full_name
+                            previousFullName !== updateData.full_name
                         ) {
                             // Fetch all PRs for this repo and update their URLs
                             const { data: affectedPrs, error: prFetchError } =
@@ -365,7 +366,7 @@ export async function handleGitHubWebhook(
                                     "Updated PR URLs after repository rename",
                                     {
                                         githubRepoId,
-                                        oldFullName: existingRepo.full_name,
+                                        oldFullName: previousFullName,
                                         newFullName: updateData.full_name,
                                         totalPrs: affectedPrs.length,
                                         updatedCount,
@@ -378,7 +379,7 @@ export async function handleGitHubWebhook(
             } else if (action === "deleted") {
                 // Repository deleted on GitHub - delete from our database
                 const { error: deleteError } = await supabaseServiceClient
-                    .from("prototype_github_repositories")
+                    .from("github_repositories")
                     .delete()
                     .eq("github_repo_id", githubRepoId);
 
@@ -391,7 +392,10 @@ export async function handleGitHubWebhook(
                 } else {
                     request.log2.info(
                         "Successfully deleted repository metadata after GitHub deletion",
-                        { githubRepoId, fullName: existingRepo.full_name },
+                        {
+                            githubRepoId,
+                            fullName: existingRepos[0]?.full_name,
+                        },
                     );
                 }
             }
