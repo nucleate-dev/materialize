@@ -1188,6 +1188,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "prototype_github_repositories_github_repo_id_team_id_fkey"
+            columns: ["github_repo_id", "team_id"]
+            isOneToOne: false
+            referencedRelation: "github_repositories"
+            referencedColumns: ["github_repo_id", "team_id"]
+          },
+          {
             foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: false
