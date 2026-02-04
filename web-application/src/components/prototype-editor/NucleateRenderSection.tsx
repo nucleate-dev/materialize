@@ -422,7 +422,7 @@ const MaterializeRenderSection = forwardRef<
         try {
           const { data, error } = await supabase
             .from("prototype_github_repositories")
-            .select("html_url")
+            .select("github_repo_id, team_id, github_repositories(html_url)")
             .eq("prototype_id", prototypeId)
             .maybeSingle();
 
@@ -434,8 +434,9 @@ const MaterializeRenderSection = forwardRef<
             return;
           }
 
+          const repoUrl = data?.github_repositories?.html_url;
           setGithubRepository({
-            html_url: data?.html_url ?? null,
+            html_url: repoUrl ?? null,
             loading: false,
           });
         } catch (error) {
