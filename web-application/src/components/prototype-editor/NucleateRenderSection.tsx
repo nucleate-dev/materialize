@@ -59,6 +59,7 @@ import {
   Eye,
   Hammer,
   LayoutGrid,
+  Lightbulb,
   Loader2,
   MessageSquare,
   Monitor,
@@ -74,8 +75,11 @@ import {
   Settings,
   Share2,
   Smartphone,
+  Sparkles,
   Tablet,
   Terminal as TerminalIcon,
+  Type,
+  Wand2,
   X,
   Zap,
 } from "lucide-react";
@@ -2037,12 +2041,6 @@ const MaterializeRenderSection = forwardRef<
       (screenId: number, path: string) => {
         if (previewMode === "mobile" || previewMode === "tablet") {
           // Clone mobile screen
-          if (mobileScreens.length >= 4) {
-            toast.warning("Maximum screens reached", {
-              description: "Mobile view supports up to 4 screens.",
-            });
-            return;
-          }
           setMobileScreens((prev) => [
             ...prev,
             { id: nextMobileScreenId.current++, path },
@@ -2050,12 +2048,6 @@ const MaterializeRenderSection = forwardRef<
           toast.success("Screen cloned");
         } else {
           // Clone web screen
-          if (webScreens.length >= 4) {
-            toast.warning("Maximum screens reached", {
-              description: "Web view supports up to 4 screens.",
-            });
-            return;
-          }
           setWebScreens((prev) => [
             ...prev,
             { id: nextWebScreenId.current++, path },
@@ -2500,28 +2492,61 @@ const MaterializeRenderSection = forwardRef<
                               )}
                               {!isReadOnlyView && (
                                 <>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
-                                    onClick={() => refreshScreen(screen.id)}
-                                    aria-label="Refresh screen"
-                                  >
-                                    <RefreshCw className="w-3 h-3" />
-                                  </Button>
-                                  {mobileScreens.length > 1 && (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
-                                      onClick={() =>
-                                        handleRemoveMobileScreen(screen.id)
-                                      }
-                                      aria-label="Remove screen"
-                                    >
-                                      <X className="w-3 h-3" />
-                                    </Button>
-                                  )}
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
+                                        aria-label="Screen actions"
+                                      >
+                                        <MoreVertical className="w-3 h-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                                      <DropdownMenuItem
+                                        onClick={() => refreshScreen(screen.id)}
+                                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                      >
+                                        <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                                        Refresh
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator className="bg-border" />
+                                      <DropdownMenuItem
+                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                      >
+                                        <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
+                                        Redesign this screen
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                      >
+                                        <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
+                                        Suggest improvements
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                        className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                      >
+                                        <Type className="w-4 h-4 mr-2 text-blue-400" />
+                                        Generate copy alternatives
+                                      </DropdownMenuItem>
+                                      {mobileScreens.length > 1 && (
+                                        <>
+                                          <DropdownMenuSeparator className="bg-border" />
+                                          <DropdownMenuItem
+                                            onClick={() => handleRemoveMobileScreen(screen.id)}
+                                            className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
+                                          >
+                                            <X className="w-4 h-4 mr-2 opacity-70" />
+                                            Remove screen
+                                          </DropdownMenuItem>
+                                        </>
+                                      )}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </>
                               )}
                             </div>
@@ -2755,30 +2780,61 @@ const MaterializeRenderSection = forwardRef<
                               </Popover>
                             )}
                             {!isReadOnlyView && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
-                                  onClick={() => refreshScreen(screen.id)}
-                                  aria-label="Refresh screen"
-                                >
-                                  <RefreshCw className="w-3 h-3" />
-                                </Button>
-                                {mobileScreens.length > 1 && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 text-muted-foreground"
-                                    onClick={() =>
-                                      handleRemoveMobileScreen(screen.id)
-                                    }
-                                    aria-label="Remove screen"
+                                    className="h-6 w-6 bg-accent border border-border rounded-full hover:bg-accent/80 text-muted-foreground"
+                                    aria-label="Screen actions"
                                   >
-                                    <X className="w-3 h-3" />
+                                    <MoreVertical className="w-3 h-3" />
                                   </Button>
-                                )}
-                              </>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                                  <DropdownMenuItem
+                                    onClick={() => refreshScreen(screen.id)}
+                                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                  >
+                                    <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                                    Refresh
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-border" />
+                                  <DropdownMenuItem
+                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                  >
+                                    <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
+                                    Redesign this screen
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                  >
+                                    <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
+                                    Suggest improvements
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                    className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                                  >
+                                    <Type className="w-4 h-4 mr-2 text-blue-400" />
+                                    Generate copy alternatives
+                                  </DropdownMenuItem>
+                                  {mobileScreens.length > 1 && (
+                                    <>
+                                      <DropdownMenuSeparator className="bg-border" />
+                                      <DropdownMenuItem
+                                        onClick={() => handleRemoveMobileScreen(screen.id)}
+                                        className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
+                                      >
+                                        <X className="w-4 h-4 mr-2 opacity-70" />
+                                        Remove screen
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             )}
                           </div>
                         </div>
@@ -3177,24 +3233,61 @@ const MaterializeRenderSection = forwardRef<
                       {/* Screen Controls */}
                       {showWebControls && showScreenControls ? (
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6"
-                            onClick={() => refreshWebScreen(screen.id)}
-                          >
-                            <RefreshCw className="w-3 h-3 text-muted-foreground" />
-                          </Button>
-                          {webScreens.length > 1 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 hover:text-red-400"
-                              onClick={() => handleRemoveWebScreen(screen.id)}
-                            >
-                              <X className="w-3 h-3 text-muted-foreground" />
-                            </Button>
-                          )}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                aria-label="Screen actions"
+                              >
+                                <MoreVertical className="w-3 h-3 text-muted-foreground" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                              <DropdownMenuItem
+                                onClick={() => refreshWebScreen(screen.id)}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <RefreshCw className="w-4 h-4 mr-2 opacity-70" />
+                                Refresh
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-border" />
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
+                                Redesign this screen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
+                                Suggest improvements
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Type className="w-4 h-4 mr-2 text-blue-400" />
+                                Generate copy alternatives
+                              </DropdownMenuItem>
+                              {webScreens.length > 1 && (
+                                <>
+                                  <DropdownMenuSeparator className="bg-border" />
+                                  <DropdownMenuItem
+                                    onClick={() => handleRemoveWebScreen(screen.id)}
+                                    className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
+                                  >
+                                    <X className="w-4 h-4 mr-2 opacity-70" />
+                                    Remove screen
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       ) : (
                         <div className="w-10"></div>
@@ -3203,13 +3296,51 @@ const MaterializeRenderSection = forwardRef<
 
                     {/* Iframe Content */}
                     <div
-                      className="relative w-full flex-1 bg-white"
+                      className="relative w-full flex-1 bg-white group/web-iframe"
                       style={{
                         minHeight: showWebMultiScreen
                           ? webFrameHeight - 60
                           : undefined,
                       }}
                     >
+                      {/* Floating AI actions overlay for single-screen web view */}
+                      {!isReadOnlyView && !showScreenControls && (
+                        <div className="absolute top-3 right-3 z-30 opacity-0 group-hover/web-iframe:opacity-100 transition-opacity duration-200">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                className="h-7 w-7 rounded-lg bg-background/80 backdrop-blur-sm border border-border shadow-sm flex items-center justify-center hover:bg-background transition-colors"
+                                aria-label="AI Actions"
+                              >
+                                <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
+                                Redesign this screen
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
+                                Suggest improvements
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
+                              >
+                                <Type className="w-4 h-4 mr-2 text-blue-400" />
+                                Generate copy alternatives
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
                       <iframe
                         key={`web-${screen.id}-${refreshKey}`}
                         ref={(c) => {

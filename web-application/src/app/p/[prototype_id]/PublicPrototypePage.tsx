@@ -632,7 +632,7 @@ export default function PrototypePage() {
     <SidebarProvider defaultOpen={false}>
       <div className="flex w-full h-screen bg-white dark:bg-background">
         {isAuthenticated && <DashboardSidebar />}
-        <main className="flex flex-1 flex-col h-screen overflow-hidden bg-white dark:bg-background">
+        <main className="flex flex-1 flex-col h-full min-w-0 overflow-hidden bg-white dark:bg-background">
           {/* Header with Sidebar Trigger */}
           <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-border bg-gray-50/50 dark:bg-white/[0.02]">
             {isAuthenticated && (
