@@ -370,38 +370,6 @@ export async function handleCreateRepositoryForPrototypeImpl(
             });
         }
 
-        // 4. Link the prototype to the repository
-        const { error: updatePrototypeError } = await supabaseServiceClient
-            .from("prototypes")
-            .update({ github_repo_id: githubRepoId })
-            .eq("id", prototype_id);
-
-        if (updatePrototypeError) {
-            request.log2.error(
-                updatePrototypeError,
-                "Failed to link prototype to GitHub repository",
-                { githubRepoId, prototypeId: prototype_id },
-            );
-            // Try to clean up the repo entry we just created
-            await supabaseServiceClient
-                .from("prototype_github_repositories")
-                .delete()
-                .eq("github_repo_id", githubRepoId);
-            await supabaseServiceClient
-                .from("github_repositories")
-                .delete()
-                .eq("github_repo_id", githubRepoId)
-                .eq("team_id", teamId);
-
-            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
-                data: null,
-                error: {
-                    error: "Database Error",
-                    message: "Failed to link prototype to repository",
-                },
-            });
-        }
-
         request.log2.info(
             "Successfully linked prototype to GitHub repository",
             {

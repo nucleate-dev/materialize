@@ -100,7 +100,7 @@ export async function handleRefreshGitHubInstallationToken(
         const { data: prototype, error: prototypeError } =
             await supabaseAuthClient
                 .from("prototypes")
-                .select("team_id, github_repo_id")
+                .select("team_id")
                 .eq("id", prototype_id)
                 .single();
 
@@ -118,20 +118,6 @@ export async function handleRefreshGitHubInstallationToken(
                 },
             });
         }
-
-        // Check if prototype has a GitHub repo
-        // if (!prototype.github_repo_id) {
-        //   this.logger.warn('Prototype does not have a GitHub repository', {
-        //     prototypeId: prototype_id,
-        //   });
-        //   return reply.status(HTTP_STATUS.BAD_REQUEST).send({
-        //     data: null,
-        //     error: {
-        //       error: 'NO_GITHUB_REPO',
-        //       message: 'This prototype does not have a linked GitHub repository',
-        //     },
-        //   });
-        // }
 
         // Step 5: Fetch GitHub integration for the team (use service role for sensitive data)
         const supabaseServiceClient = createClient<Database>(

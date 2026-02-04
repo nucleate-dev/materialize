@@ -188,32 +188,33 @@ export async function handleStartDevServerImpl(
     }
   }
 
-  // Fetch prototype to check for GitHub repo
-  const { data: prototypeRow, error: prototypeError } =
+  const { data: githubRepoRow, error: githubRepoError } =
     await developmentServerService.supabaseClientService
       .getClient()
-      .from("prototypes")
-      .select("github_repo_id, team_id")
-      .eq("id", prototype_id)
-      .single();
+      .from("prototype_github_repositories")
+      .select(
+        "github_repo_id, team_id, github_repositories(full_name, html_url, owner_login, repo_name, default_branch)",
+      )
+      .eq("prototype_id", prototype_id)
+      .maybeSingle();
 
-  if (prototypeError) {
+  if (githubRepoError) {
     request.log2.error(
-      prototypeError,
-      "Failed to fetch prototype information",
+      githubRepoError,
+      "Failed to fetch prototype GitHub repository information",
       { prototypeId: prototype_id },
     );
     reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
       data: null,
       error: {
-        error: "Failed to fetch prototype information",
-        message: prototypeError.message,
+        error: "Failed to fetch prototype GitHub repository information",
+        message: githubRepoError.message,
       },
     };
   }
 
-  const hasGitHubRepo = prototypeRow.github_repo_id !== null;
+  const hasGitHubRepo = Boolean(githubRepoRow?.github_repo_id);
 
   // if web, set the adapter to the appropriate adapter with the correct tunnel hostname
   const resolvedFramework =
@@ -277,23 +278,13 @@ export async function handleStartDevServerImpl(
   // 0. Initialize git or clone repository
   if (hasGitHubRepo) {
     // Fetch GitHub repository info
-    const { data: githubRepo, error: githubRepoError } =
-      await developmentServerService.supabaseClientService
-        .getClient()
-        .from("prototype_github_repositories")
-        .select(
-          "github_repo_id, team_id, github_repositories(full_name, html_url, owner_login, repo_name, default_branch)",
-        )
-        .eq("prototype_id", prototype_id)
-        .maybeSingle();
-
-    if (githubRepoError || !githubRepo?.github_repositories) {
+    if (!githubRepoRow?.github_repositories) {
       request.log2.error(
-        githubRepoError ?? new Error("GitHub repository not found"),
+        new Error("GitHub repository not found"),
         "Failed to fetch GitHub repository info",
         {
           prototypeId: prototype_id,
-          githubRepoId: prototypeRow.github_repo_id,
+          githubRepoId: githubRepoRow?.github_repo_id ?? null,
         },
       );
       reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
@@ -301,7 +292,7 @@ export async function handleStartDevServerImpl(
         data: null,
         error: {
           error: "Failed to fetch GitHub repository information",
-          message: githubRepoError?.message ?? "Repository not found",
+          message: "Repository not found",
         },
       };
     }
@@ -325,7 +316,7 @@ export async function handleStartDevServerImpl(
       }
 
       // Store GitHub info in developmentServerService
-      const repoMetadata = githubRepo.github_repositories;
+      const repoMetadata = githubRepoRow.github_repositories;
       developmentServerService.githubRepository = {
         repositoryUrl: repoMetadata.html_url,
         repositoryOwner: repoMetadata.owner_login,

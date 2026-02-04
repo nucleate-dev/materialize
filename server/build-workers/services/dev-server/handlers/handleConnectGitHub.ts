@@ -14,7 +14,7 @@ import { getWorkerContext, WORK_DIR } from "../../../worker.js";
  * an active sandbox with code.
  *
  * Steps:
- * 1. Refetch the prototype to get the github_repo_id
+ * 1. Fetch the prototype GitHub repository mapping
  * 2. Fetch the GitHub repository info
  * 3. Get a fresh GitHub installation token
  * 4. Set the git remote origin
@@ -45,43 +45,7 @@ export async function handleConnectGitHubImpl(
     prototypeId,
   });
 
-  // 1. Refetch prototype to get github_repo_id
-  const { data: prototypeRow, error: prototypeError } =
-    await developmentServerService.supabaseClientService
-      .getClient()
-      .from("prototypes")
-      .select("github_repo_id, team_id")
-      .eq("id", prototypeId)
-      .single();
-
-  if (prototypeError) {
-    request.log2.error(
-      prototypeError,
-      "Failed to fetch prototype information",
-      { prototypeId },
-    );
-    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    return {
-      data: null,
-      error: {
-        error: "Failed to fetch prototype information",
-        message: prototypeError.message,
-      },
-    };
-  }
-
-  if (!prototypeRow.github_repo_id) {
-    reply.code(HTTP_STATUS.BAD_REQUEST);
-    return {
-      data: null,
-      error: {
-        error: "No GitHub repository",
-        message: "This prototype does not have a linked GitHub repository",
-      },
-    };
-  }
-
-  // 2. Fetch GitHub repository info
+  // 1. Fetch the prototype GitHub repository mapping
   const { data: githubRepo, error: githubRepoError } =
     await developmentServerService.supabaseClientService
       .getClient()
@@ -92,23 +56,34 @@ export async function handleConnectGitHubImpl(
       .eq("prototype_id", prototypeId)
       .maybeSingle();
 
-  if (githubRepoError || !githubRepo?.github_repositories) {
+  if (githubRepoError) {
     request.log2.error(
-      githubRepoError ?? new Error("GitHub repository not found"),
+      githubRepoError,
       "Failed to fetch GitHub repository info",
-      { prototypeId, githubRepoId: prototypeRow.github_repo_id },
+      { prototypeId },
     );
     reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
     return {
       data: null,
       error: {
         error: "Failed to fetch GitHub repository information",
-        message: githubRepoError?.message ?? "Repository not found",
+        message: githubRepoError.message,
       },
     };
   }
 
-  // 3. Get a fresh installation token
+  if (!githubRepo?.github_repo_id || !githubRepo.github_repositories) {
+    reply.code(HTTP_STATUS.BAD_REQUEST);
+    return {
+      data: null,
+      error: {
+        error: "No GitHub repository",
+        message: "This prototype does not have a linked GitHub repository",
+      },
+    };
+  }
+
+  // 2. Get a fresh installation token
   try {
     const userJwtToken =
       developmentServerService.supabaseClientService.getCurrentJwtToken();

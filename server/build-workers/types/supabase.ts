@@ -1286,7 +1286,6 @@ export type Database = {
           design_style: Database["public"]["Enums"]["design_style"]
           folder_id: string | null
           framework: Database["public"]["Enums"]["prototype_framework"] | null
-          github_repo_id: number | null
           id: string
           latest_build_key: string
           latest_deploy_key: string | null
@@ -1307,7 +1306,6 @@ export type Database = {
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
-          github_repo_id?: number | null
           id?: string
           latest_build_key: string
           latest_deploy_key?: string | null
@@ -1328,7 +1326,6 @@ export type Database = {
           design_style?: Database["public"]["Enums"]["design_style"]
           folder_id?: string | null
           framework?: Database["public"]["Enums"]["prototype_framework"] | null
-          github_repo_id?: number | null
           id?: string
           latest_build_key?: string
           latest_deploy_key?: string | null
@@ -1356,13 +1353,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "folders"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prototypes_github_repo_id_fkey"
-            columns: ["github_repo_id"]
-            isOneToOne: false
-            referencedRelation: "prototype_github_repositories"
-            referencedColumns: ["github_repo_id"]
           },
           {
             foreignKeyName: "prototypes_owner_id_fkey"
