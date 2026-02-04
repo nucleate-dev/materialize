@@ -1082,6 +1082,7 @@ export default function ClaudeCodePanelUI({
                     isOpen={isContextDropdownOpen}
                     onClose={() => setIsContextDropdownOpen(false)}
                     normalizedTunnelUrl={normalizedTunnelUrl}
+                    prototypeId={prototypeId}
                   />
 
                   {/* Context Button */}
