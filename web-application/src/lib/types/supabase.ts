@@ -82,7 +82,6 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
           team_id: string
           user_id: string
         }
@@ -93,7 +92,6 @@ export type Database = {
           id?: never
           is_free_tier?: boolean
           prototype_id?: string | null
-          team_id?: string | null
           team_id?: string
           user_id?: string
         }
@@ -254,7 +252,6 @@ export type Database = {
           hostname: string | null
           id: string
           prototype_id: string | null
-          team_id: string | null
           status: Database["public"]["Enums"]["tunnel_status"]
           token: string | null
           tunnel_id: string | null
@@ -266,7 +263,6 @@ export type Database = {
           hostname?: string | null
           id?: string
           prototype_id?: string | null
-          team_id?: string | null
           status?: Database["public"]["Enums"]["tunnel_status"]
           token?: string | null
           tunnel_id?: string | null
@@ -278,7 +274,6 @@ export type Database = {
           hostname?: string | null
           id?: string
           prototype_id?: string | null
-          team_id?: string | null
           status?: Database["public"]["Enums"]["tunnel_status"]
           token?: string | null
           tunnel_id?: string | null
@@ -692,65 +687,6 @@ export type Database = {
       }
       github_repositories: {
         Row: {
-          github_repo_id: number
-          team_id: string
-          installation_id: number | null
-          account_login: string | null
-          account_type: string | null
-          owner_login: string | null
-          repo_name: string | null
-          full_name: string | null
-          html_url: string | null
-          default_branch: string | null
-          is_private: boolean | null
-          is_archived: boolean | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          github_repo_id: number
-          team_id: string
-          installation_id?: number | null
-          account_login?: string | null
-          account_type?: string | null
-          owner_login?: string | null
-          repo_name?: string | null
-          full_name?: string | null
-          html_url?: string | null
-          default_branch?: string | null
-          is_private?: boolean | null
-          is_archived?: boolean | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          github_repo_id?: number
-          team_id?: string
-          installation_id?: number | null
-          account_login?: string | null
-          account_type?: string | null
-          owner_login?: string | null
-          repo_name?: string | null
-          full_name?: string | null
-          html_url?: string | null
-          default_branch?: string | null
-          is_private?: boolean | null
-          is_archived?: boolean | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "github_repositories_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prototype_github_repositories: {
-        Row: {
           account_login: string
           account_type: string
           created_at: string
@@ -763,8 +699,8 @@ export type Database = {
           is_private: boolean | null
           owner_login: string
           prototype_id: string | null
-          team_id: string | null
           repo_name: string
+          team_id: string | null
           updated_at: string
         }
         Insert: {
@@ -780,8 +716,8 @@ export type Database = {
           is_private?: boolean | null
           owner_login: string
           prototype_id?: string | null
-          team_id?: string | null
           repo_name: string
+          team_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -797,20 +733,13 @@ export type Database = {
           is_private?: boolean | null
           owner_login?: string
           prototype_id?: string | null
-          team_id?: string | null
           repo_name?: string
+          team_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "prototype_github_repositories_github_repo_id_fkey"
-            columns: ["github_repo_id", "team_id"]
-            isOneToOne: false
-            referencedRelation: "github_repositories"
-            referencedColumns: ["github_repo_id", "team_id"]
-          },
-          {
-            foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
+            foreignKeyName: "github_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
             isOneToOne: false
             referencedRelation: "prototypes"
@@ -875,7 +804,6 @@ export type Database = {
           id: string
           name: string
           prototype_id: string | null
-          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -883,7 +811,6 @@ export type Database = {
           id?: string
           name: string
           prototype_id?: string | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -891,7 +818,6 @@ export type Database = {
           id?: string
           name?: string
           prototype_id?: string | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1180,7 +1106,6 @@ export type Database = {
           id: string
           name: string
           prototype_id: string | null
-          team_id: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1189,7 +1114,6 @@ export type Database = {
           id?: string
           name: string
           prototype_id?: string | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1198,7 +1122,6 @@ export type Database = {
           id?: string
           name?: string
           prototype_id?: string | null
-          team_id?: string | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1211,41 +1134,71 @@ export type Database = {
           },
         ]
       }
-      prototype_source_repositories: {
+      prototype_github_repositories: {
         Row: {
+          account_login: string
+          account_type: string
           created_at: string
-          prototype_id: string
-          source_repo_id: number | null
+          default_branch: string
+          full_name: string
+          github_repo_id: number
+          html_url: string
+          installation_id: number
+          is_archived: boolean | null
+          is_private: boolean | null
+          owner_login: string
+          prototype_id: string | null
+          repo_name: string
           team_id: string | null
           updated_at: string
         }
         Insert: {
+          account_login: string
+          account_type: string
           created_at?: string
-          prototype_id: string
-          source_repo_id?: number | null
+          default_branch: string
+          full_name: string
+          github_repo_id: number
+          html_url: string
+          installation_id: number
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login: string
+          prototype_id?: string | null
+          repo_name: string
           team_id?: string | null
           updated_at?: string
         }
         Update: {
+          account_login?: string
+          account_type?: string
           created_at?: string
-          prototype_id?: string
-          source_repo_id?: number | null
+          default_branch?: string
+          full_name?: string
+          github_repo_id?: number
+          html_url?: string
+          installation_id?: number
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login?: string
+          prototype_id?: string | null
+          repo_name?: string
           team_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "prototype_source_repositories_source_repo_id_fkey"
-            columns: ["source_repo_id", "team_id"]
+            foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
+            columns: ["prototype_id"]
             isOneToOne: false
-            referencedRelation: "github_repositories"
-            referencedColumns: ["github_repo_id", "team_id"]
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "prototype_source_repositories_prototype_id_fkey"
-            columns: ["prototype_id"]
-            isOneToOne: true
-            referencedRelation: "prototypes"
+            foreignKeyName: "prototype_github_repositories_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1312,6 +1265,75 @@ export type Database = {
             columns: ["prototype_id"]
             isOneToOne: false
             referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prototype_source_repositories: {
+        Row: {
+          account_login: string | null
+          account_type: string | null
+          created_at: string
+          default_branch: string | null
+          full_name: string | null
+          html_url: string | null
+          installation_id: number | null
+          is_archived: boolean | null
+          is_private: boolean | null
+          owner_login: string | null
+          prototype_id: string
+          repo_name: string | null
+          source_repo_id: number | null
+          team_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_login?: string | null
+          account_type?: string | null
+          created_at?: string
+          default_branch?: string | null
+          full_name?: string | null
+          html_url?: string | null
+          installation_id?: number | null
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login?: string | null
+          prototype_id: string
+          repo_name?: string | null
+          source_repo_id?: number | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_login?: string | null
+          account_type?: string | null
+          created_at?: string
+          default_branch?: string | null
+          full_name?: string | null
+          html_url?: string | null
+          installation_id?: number | null
+          is_archived?: boolean | null
+          is_private?: boolean | null
+          owner_login?: string | null
+          prototype_id?: string
+          repo_name?: string | null
+          source_repo_id?: number | null
+          team_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_source_repositories_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: true
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prototype_source_repositories_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -1848,7 +1870,6 @@ export type Database = {
           hostname: string | null
           id: string
           prototype_id: string | null
-          team_id: string | null
           status: Database["public"]["Enums"]["tunnel_status"]
           token: string | null
           tunnel_id: string | null
