@@ -86,11 +86,13 @@ export async function handleConnectGitHubImpl(
     await developmentServerService.supabaseClientService
       .getClient()
       .from("prototype_github_repositories")
-      .select("*")
-      .eq("github_repo_id", prototypeRow.github_repo_id)
-      .single();
+      .select(
+        "github_repo_id, team_id, github_repositories(full_name, html_url, owner_login, repo_name, default_branch)",
+      )
+      .eq("prototype_id", prototypeId)
+      .maybeSingle();
 
-  if (githubRepoError || !githubRepo) {
+  if (githubRepoError || !githubRepo?.github_repositories) {
     request.log2.error(
       githubRepoError ?? new Error("GitHub repository not found"),
       "Failed to fetch GitHub repository info",
@@ -121,12 +123,13 @@ export async function handleConnectGitHubImpl(
       );
 
     // Store GitHub info in developmentServerService
+  const repoMetadata = githubRepo.github_repositories;
     developmentServerService.githubRepository = {
-      repositoryUrl: githubRepo.html_url,
-      repositoryOwner: githubRepo.owner_login,
-      repositoryName: githubRepo.repo_name,
-      defaultBranch: githubRepo.default_branch || "main",
-      fullName: githubRepo.full_name,
+      repositoryUrl: repoMetadata.html_url,
+      repositoryOwner: repoMetadata.owner_login,
+      repositoryName: repoMetadata.repo_name,
+      defaultBranch: repoMetadata.default_branch || "main",
+      fullName: repoMetadata.full_name,
     };
     developmentServerService.githubInstallationToken = {
       installationToken: tokenData.installation_token,
@@ -135,12 +138,12 @@ export async function handleConnectGitHubImpl(
 
     request.log2.info("GitHub repository configured for prototype", {
       prototypeId,
-      repositoryFullName: githubRepo.full_name,
-      defaultBranch: githubRepo.default_branch,
+      repositoryFullName: repoMetadata.full_name,
+      defaultBranch: repoMetadata.default_branch,
     });
 
     // 4. Set git remote origin and push to GitHub
-    const authenticatedUrl = `https://x-access-token:${tokenData.installation_token}@github.com/${githubRepo.full_name}.git`;
+    const authenticatedUrl = `https://x-access-token:${tokenData.installation_token}@github.com/${repoMetadata.full_name}.git`;
 
     // Check if remote already exists and update it, or add it if it doesn't
     const setRemoteCommand = `cd ${WORK_DIR} && (git remote get-url origin > /dev/null 2>&1 && git remote set-url origin ${authenticatedUrl} || git remote add origin ${authenticatedUrl})`;
@@ -175,7 +178,7 @@ export async function handleConnectGitHubImpl(
     }
 
     // 5. Push all commits to GitHub
-    const defaultBranch = githubRepo.default_branch || "main";
+    const defaultBranch = repoMetadata.default_branch || "main";
     const pushCommand = `cd ${WORK_DIR} && git push -u origin HEAD:${defaultBranch}`;
 
     const pushResult =
