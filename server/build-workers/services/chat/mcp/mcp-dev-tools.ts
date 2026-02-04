@@ -413,7 +413,7 @@ export function createDevelopmentToolsMcpServer(
         ? [
           tool(
             "UpdatePreviewScreens",
-            "Control preview screens shown to the user. Actions: 'add' (new screen), 'remove' (by ID), 'set' (replace all). Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side). Maximum 4 screens.",
+            "Control preview screens shown to the user. Actions: 'add' (new screen), 'remove' (by ID), 'set' (replace all). Use this to help users compare design variants side-by-side. PROACTIVELY use this when creating design variants (e.g., after creating /pricing-v1 and /pricing-v2, use this to show them side-by-side).",
             {
               action: z
                 .enum(["add", "remove", "set"])
@@ -434,10 +434,9 @@ export function createDevelopmentToolsMcpServer(
                 ),
               screens: z
                 .array(z.object({ path: z.string() }))
-                .max(4)
                 .optional()
                 .describe(
-                  "Array of screen paths for 'set' action (max 4 screens). Required when action is 'set'.",
+                  "Array of screen paths for 'set' action. Required when action is 'set'.",
                 ),
               previewMode: z
                 .enum(["mobile", "web", "tablet"])
@@ -501,22 +500,6 @@ export function createDevelopmentToolsMcpServer(
                   ],
                 };
               }
-              // Enforce max 4 screens for add action
-              if (action === "add" && getVisibleScreensCount) {
-                const currentCount = getVisibleScreensCount();
-                if (currentCount >= 4) {
-                  return {
-                    content: [
-                      {
-                        type: "text",
-                        text:
-                          "Cannot add screen: maximum of 4 screens allowed. Use 'set' action to replace screens or 'remove' to free up space.",
-                      },
-                    ],
-                  };
-                }
-              }
-
               // Broadcast screen update to client
               const updateData: ScreenUpdateData = {
                 action,
