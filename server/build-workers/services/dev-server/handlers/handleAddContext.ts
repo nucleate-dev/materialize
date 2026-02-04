@@ -98,6 +98,7 @@ export async function handleAddContextImpl(
     .insert({
       prototype_id: prototypeId,
       source_repo_id: github.github_repo_id,
+      team_id: authResult.prototype.team_id,
     });
 
   if (insertError) {
@@ -147,7 +148,7 @@ export async function handleAddContextImpl(
         github.github_repo_id,
       );
 
-    developmentServerService.setSourceRepository({
+    const sourceRepo = {
       githubRepoId: sourceRepoResponse.source_repo.github_repo_id,
       installationId: sourceRepoResponse.source_repo.installation_id,
       repositoryUrl: sourceRepoResponse.source_repo.repository_url,
@@ -155,7 +156,9 @@ export async function handleAddContextImpl(
       repositoryName: sourceRepoResponse.source_repo.repository_name,
       defaultBranch: sourceRepoResponse.source_repo.default_branch,
       fullName: sourceRepoResponse.source_repo.full_name,
-    });
+    };
+
+    developmentServerService.setSourceRepository(sourceRepo);
 
     if (!developmentServerService.githubInstallationToken) {
       developmentServerService.githubInstallationToken = {
@@ -163,6 +166,53 @@ export async function handleAddContextImpl(
         tokenExpiresAt: sourceRepoResponse.expires_at,
       };
       developmentServerService.startGitHubTokenRefreshJob(prototypeId);
+    }
+
+    const supabaseClient = developmentServerService.supabaseClientService
+      .getClient();
+
+    const { error: canonicalRepoError } = await supabaseClient
+      .from("github_repositories")
+      .upsert({
+        github_repo_id: sourceRepo.githubRepoId,
+        team_id: teamId,
+        installation_id: sourceRepo.installationId,
+        account_login: sourceRepo.repositoryOwner,
+        owner_login: sourceRepo.repositoryOwner,
+        repo_name: sourceRepo.repositoryName,
+        full_name: sourceRepo.fullName,
+        html_url: sourceRepo.repositoryUrl,
+        default_branch: sourceRepo.defaultBranch,
+      });
+
+    if (canonicalRepoError) {
+      request.log2.error(
+        canonicalRepoError,
+        "Failed to upsert github_repositories after linking context",
+        { prototypeId, githubRepoId: sourceRepo.githubRepoId, teamId },
+      );
+    }
+
+    const { error: updateSourceRepoError } = await supabaseClient
+      .from("prototype_source_repositories")
+      .update({
+        team_id: teamId,
+        installation_id: sourceRepo.installationId,
+        account_login: sourceRepo.repositoryOwner,
+        owner_login: sourceRepo.repositoryOwner,
+        repo_name: sourceRepo.repositoryName,
+        full_name: sourceRepo.fullName,
+        html_url: sourceRepo.repositoryUrl,
+        default_branch: sourceRepo.defaultBranch,
+      })
+      .eq("prototype_id", prototypeId);
+
+    if (updateSourceRepoError) {
+      request.log2.error(
+        updateSourceRepoError,
+        "Failed to update prototype_source_repositories metadata after linking context",
+        { prototypeId, githubRepoId: sourceRepo.githubRepoId, teamId },
+      );
     }
 
     await cloneSourceRepositoryToTmp(
