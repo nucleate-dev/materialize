@@ -80,7 +80,7 @@ export async function handleCreatePrototypeImpl(
       design_style,
       custom_design_system,
       framework,
-      source_repo_id,
+      // source_repo_id,
     } = request.body;
     const { visibility } = request.body;
 
@@ -278,7 +278,7 @@ export async function handleCreatePrototypeImpl(
       request.log2.error(
         new Error(prototypeInsertError.message),
         "[handleCreatePrototype] Error creating prototype:" +
-          prototypeInsertError.message,
+        prototypeInsertError.message,
       );
       const errorResponse: CreatePrototypeErrorResponse = {
         error: "DATABASE_ERROR",
@@ -361,57 +361,57 @@ export async function handleCreatePrototypeImpl(
         );
       }
 
-      // Insert into prototype_source_repositories if source_repo_id is provided
-      if (source_repo_id) {
-        const { error: canonicalRepoError } = await supabase
-          .from("github_repositories")
-          .upsert({
-            github_repo_id: source_repo_id,
-            team_id,
-          });
-        if (canonicalRepoError) {
-          request.log2.error(
-            canonicalRepoError,
-            "[handleCreatePrototype] Failed to upsert github_repositories entry",
-            {
-              newPrototypeId,
-              source_repo_id,
-              team_id,
-            },
-          );
-        }
+      // This is no longer possible via the create route for now // Insert into prototype_source_repositories if source_repo_id is provided
+      // if (source_repo_id) {
+      //   const { error: canonicalRepoError } = await supabase
+      //     .from("github_repositories")
+      //     .upsert({
+      //       github_repo_id: source_repo_id,
+      //       team_id,
+      //     });
+      //   if (canonicalRepoError) {
+      //     request.log2.error(
+      //       canonicalRepoError,
+      //       "[handleCreatePrototype] Failed to upsert github_repositories entry",
+      //       {
+      //         newPrototypeId,
+      //         source_repo_id,
+      //         team_id,
+      //       },
+      //     );
+      //   }
 
-        const { error: sensitiveMetadataError } = await supabase
-          .from("prototype_source_repositories")
-          .insert(
-            {
-              prototype_id: newPrototypeId,
-              source_repo_id: source_repo_id,
-              team_id,
-            } satisfies TablesInsert<"prototype_source_repositories">,
-          );
-        if (sensitiveMetadataError) {
-          request.log2.error(
-            sensitiveMetadataError,
-            "[handleCreatePrototype] Failed to insert prototype_source_repositories entry",
-            {
-              newPrototypeId,
-              source_repo_id,
-            },
-          );
-          // Don't fail the entire operation if sensitive metadata insert fails
-          // The prototype is already created successfully
-        } else {
-          request.log2.consoleLogDevOnly(
-            "info",
-            "[handleCreatePrototype] Created prototype_source_repositories",
-            {
-              newPrototypeId,
-              source_repo_id,
-            },
-          );
-        }
-      }
+      //   const { error: sensitiveMetadataError } = await supabase
+      //     .from("prototype_source_repositories")
+      //     .insert(
+      //       {
+      //         prototype_id: newPrototypeId,
+      //         source_repo_id: source_repo_id,
+      //         team_id,
+      //       } satisfies TablesInsert<"prototype_source_repositories">,
+      //     );
+      //   if (sensitiveMetadataError) {
+      //     request.log2.error(
+      //       sensitiveMetadataError,
+      //       "[handleCreatePrototype] Failed to insert prototype_source_repositories entry",
+      //       {
+      //         newPrototypeId,
+      //         source_repo_id,
+      //       },
+      //     );
+      //     // Don't fail the entire operation if sensitive metadata insert fails
+      //     // The prototype is already created successfully
+      //   } else {
+      //     request.log2.consoleLogDevOnly(
+      //       "info",
+      //       "[handleCreatePrototype] Created prototype_source_repositories",
+      //       {
+      //         newPrototypeId,
+      //         source_repo_id,
+      //       },
+      //     );
+      //   }
+      // }
 
       // 6. Get viewing URL and return success
       const viewingUrl = getPrototypeViewingUrl(newPrototypeId);
@@ -550,11 +550,11 @@ async function forkPrototype(
     );
     throw new Error(
       filesResult.error?.message ||
-        assetsResult.error?.message ||
-        thumbnailCopyResult.error ||
-        s3CopyResult.error ||
-        envVarResult.error?.message ||
-        "Failed copy operations or fetching protototype files+assets",
+      assetsResult.error?.message ||
+      thumbnailCopyResult.error ||
+      s3CopyResult.error ||
+      envVarResult.error?.message ||
+      "Failed copy operations or fetching protototype files+assets",
     );
   }
 
@@ -593,13 +593,12 @@ async function forkPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-        assetsInsertResult.error ||
-        assetsStorageCopyResult.error,
+      assetsInsertResult.error ||
+      assetsStorageCopyResult.error,
       "[forkPrototype] Failed to insert files or assets",
     );
     throw new Error(
-      `Failed to copy prototype files or assets: ${
-        filesInsertResult.error?.message || assetsInsertResult.error?.message
+      `Failed to copy prototype files or assets: ${filesInsertResult.error?.message || assetsInsertResult.error?.message
       }`,
     );
   }
@@ -627,7 +626,7 @@ async function forkPrototype(
         );
         throw new Error(
           envInsertError.message ||
-            "Failed to copy prototype environment variables",
+          "Failed to copy prototype environment variables",
         );
       }
 
@@ -665,7 +664,7 @@ async function forkPrototype(
             );
             throw new Error(
               envSecretInsertError.message ||
-                "Failed to copy prototype environment variable secrets",
+              "Failed to copy prototype environment variable secrets",
             );
           }
         }
@@ -736,15 +735,14 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       defaultFilesResult.error ||
-        s3CopyResult.error ||
-        thumbnailCopyResult.error,
+      s3CopyResult.error ||
+      thumbnailCopyResult.error,
       "[createNewPrototype] Failed to get default files from S3 or copy thumbnail",
     );
     throw new Error(
-      `Failed to get default files from S3 or copy thumbnail: ${
-        defaultFilesResult.error ||
-        s3CopyResult.error ||
-        thumbnailCopyResult.error
+      `Failed to get default files from S3 or copy thumbnail: ${defaultFilesResult.error ||
+      s3CopyResult.error ||
+      thumbnailCopyResult.error
       }`,
     );
   }
@@ -786,15 +784,14 @@ export async function copyAllDefaultsForNewPrototype(
   ) {
     log2.error(
       filesInsertResult.error ||
-        assetsInsertResult.error ||
-        supabaseStorageAssetUploadResult.error,
+      assetsInsertResult.error ||
+      supabaseStorageAssetUploadResult.error,
       "[createNewPrototype] Failed to insert default files or assets",
     );
     throw new Error(
-      `Failed to insert default files or assets: ${
-        filesInsertResult.error?.message ||
-        assetsInsertResult.error?.message ||
-        supabaseStorageAssetUploadResult.error
+      `Failed to insert default files or assets: ${filesInsertResult.error?.message ||
+      assetsInsertResult.error?.message ||
+      supabaseStorageAssetUploadResult.error
       }`,
     );
   }
