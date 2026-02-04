@@ -65,12 +65,14 @@ export async function handleCreateRepositoryForPrototypeImpl(
 
     try {
         // 1. Check if prototype already has a GitHub repo linked
-        if (authResponse.prototype.github_repo_id) {
+        {
             const { data: existingRepo, error: repoCheckError } =
                 await supabaseServiceClient
                     .from("prototype_github_repositories")
-                    .select("github_repo_id, full_name, is_archived, html_url")
-                    .eq("github_repo_id", authResponse.prototype.github_repo_id)
+                    .select(
+                        "github_repo_id, github_repositories(is_archived, full_name)",
+                    )
+                    .eq("prototype_id", prototype_id)
                     .maybeSingle();
 
             if (repoCheckError) {
@@ -88,14 +90,18 @@ export async function handleCreateRepositoryForPrototypeImpl(
                 });
             }
 
-            // If repo exists and is not archived, deny the request
-            if (existingRepo && !existingRepo.is_archived) {
+            if (
+                existingRepo?.github_repo_id &&
+                !existingRepo.github_repositories?.is_archived
+            ) {
+                const existingFullName =
+                    existingRepo.github_repositories?.full_name ?? "unknown";
                 request.log2.warn(
-                    "Prototype already has an active GitHub repository",
+                    "Prototype already has a GitHub repository",
                     {
                         prototypeId: prototype_id,
                         existingRepoId: existingRepo.github_repo_id,
-                        existingRepoName: existingRepo.full_name,
+                        existingRepoName: existingFullName,
                     },
                 );
                 return reply.status(HTTP_STATUS.CONFLICT).send({
@@ -103,7 +109,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
                     error: {
                         error: "Repository Already Exists",
                         message:
-                            `This prototype is already linked to GitHub repository: ${existingRepo.full_name}`,
+                            `This prototype is already linked to GitHub repository: ${existingFullName}`,
                     },
                 });
             }
@@ -301,11 +307,44 @@ export async function handleCreateRepositoryForPrototypeImpl(
                 repoData.name ?? repoName
             }`;
 
+        const { error: insertCanonicalRepoError } = await supabaseServiceClient
+            .from("github_repositories")
+            .upsert({
+                github_repo_id: githubRepoId,
+                team_id: teamId,
+                installation_id: integration.installation_id,
+                account_login: integration.account_login,
+                account_type: integration.account_type,
+                owner_login: repoData.owner?.login ?? integration.account_login,
+                repo_name: repoData.name ?? repoName,
+                full_name: fullName,
+                html_url: repoData.html_url ?? `https://github.com/${fullName}`,
+                default_branch: repoData.default_branch ?? "main",
+                is_private: repoData.private ?? isPrivate,
+                is_archived: repoData.archived ?? false,
+            });
+
+        if (insertCanonicalRepoError) {
+            request.log2.error(
+                insertCanonicalRepoError,
+                "Failed to upsert canonical GitHub repository",
+                { githubRepoId, teamId, prototypeId: prototype_id },
+            );
+            return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
+                data: null,
+                error: {
+                    error: "Database Error",
+                    message: "Failed to save repository metadata",
+                },
+            });
+        }
+
         const { error: insertRepoError } = await supabaseServiceClient
             .from("prototype_github_repositories")
             .insert({
                 github_repo_id: githubRepoId,
                 prototype_id: prototype_id,
+                team_id: teamId,
                 installation_id: integration.installation_id,
                 account_login: integration.account_login,
                 account_type: integration.account_type,
@@ -350,6 +389,11 @@ export async function handleCreateRepositoryForPrototypeImpl(
                 .from("prototype_github_repositories")
                 .delete()
                 .eq("github_repo_id", githubRepoId);
+            await supabaseServiceClient
+                .from("github_repositories")
+                .delete()
+                .eq("github_repo_id", githubRepoId)
+                .eq("team_id", teamId);
 
             return reply.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).send({
                 data: null,
