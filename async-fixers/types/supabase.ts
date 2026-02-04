@@ -697,7 +697,6 @@ export type Database = {
           is_archived: boolean | null
           is_private: boolean | null
           owner_login: string
-          prototype_id: string | null
           repo_name: string
           team_id: string | null
           updated_at: string
@@ -713,7 +712,6 @@ export type Database = {
           is_archived?: boolean | null
           is_private?: boolean | null
           owner_login: string
-          prototype_id?: string | null
           repo_name: string
           team_id?: string | null
           updated_at?: string
@@ -729,20 +727,11 @@ export type Database = {
           is_archived?: boolean | null
           is_private?: boolean | null
           owner_login?: string
-          prototype_id?: string | null
           repo_name?: string
           team_id?: string | null
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "github_repositories_prototype_id_fkey"
-            columns: ["prototype_id"]
-            isOneToOne: false
-            referencedRelation: "prototypes"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       payments: {
         Row: {
@@ -1133,53 +1122,23 @@ export type Database = {
       }
       prototype_github_repositories: {
         Row: {
-          account_login: string
-          account_type: string
           created_at: string
-          default_branch: string
-          full_name: string
           github_repo_id: number
-          html_url: string
-          installation_id: number
-          is_archived: boolean | null
-          is_private: boolean | null
-          owner_login: string
           prototype_id: string | null
-          repo_name: string
           team_id: string | null
           updated_at: string
         }
         Insert: {
-          account_login: string
-          account_type: string
           created_at?: string
-          default_branch: string
-          full_name: string
           github_repo_id: number
-          html_url: string
-          installation_id: number
-          is_archived?: boolean | null
-          is_private?: boolean | null
-          owner_login: string
           prototype_id?: string | null
-          repo_name: string
           team_id?: string | null
           updated_at?: string
         }
         Update: {
-          account_login?: string
-          account_type?: string
           created_at?: string
-          default_branch?: string
-          full_name?: string
           github_repo_id?: number
-          html_url?: string
-          installation_id?: number
-          is_archived?: boolean | null
-          is_private?: boolean | null
-          owner_login?: string
           prototype_id?: string | null
-          repo_name?: string
           team_id?: string | null
           updated_at?: string
         }
@@ -1194,7 +1153,7 @@ export type Database = {
           {
             foreignKeyName: "prototype_github_repositories_prototype_id_fkey"
             columns: ["prototype_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "prototypes"
             referencedColumns: ["id"]
           },
@@ -1275,52 +1234,22 @@ export type Database = {
       }
       prototype_source_repositories: {
         Row: {
-          account_login: string | null
-          account_type: string | null
           created_at: string
-          default_branch: string | null
-          full_name: string | null
-          html_url: string | null
-          installation_id: number | null
-          is_archived: boolean | null
-          is_private: boolean | null
-          owner_login: string | null
           prototype_id: string
-          repo_name: string | null
           source_repo_id: number | null
           team_id: string | null
           updated_at: string
         }
         Insert: {
-          account_login?: string | null
-          account_type?: string | null
           created_at?: string
-          default_branch?: string | null
-          full_name?: string | null
-          html_url?: string | null
-          installation_id?: number | null
-          is_archived?: boolean | null
-          is_private?: boolean | null
-          owner_login?: string | null
           prototype_id: string
-          repo_name?: string | null
           source_repo_id?: number | null
           team_id?: string | null
           updated_at?: string
         }
         Update: {
-          account_login?: string | null
-          account_type?: string | null
           created_at?: string
-          default_branch?: string | null
-          full_name?: string | null
-          html_url?: string | null
-          installation_id?: number | null
-          is_archived?: boolean | null
-          is_private?: boolean | null
-          owner_login?: string | null
           prototype_id?: string
-          repo_name?: string | null
           source_repo_id?: number | null
           team_id?: string | null
           updated_at?: string
