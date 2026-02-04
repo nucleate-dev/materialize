@@ -363,12 +363,31 @@ export async function handleCreatePrototypeImpl(
 
       // Insert into prototype_source_repositories if source_repo_id is provided
       if (source_repo_id) {
+        const { error: canonicalRepoError } = await supabase
+          .from("github_repositories")
+          .upsert({
+            github_repo_id: source_repo_id,
+            team_id,
+          });
+        if (canonicalRepoError) {
+          request.log2.error(
+            canonicalRepoError,
+            "[handleCreatePrototype] Failed to upsert github_repositories entry",
+            {
+              newPrototypeId,
+              source_repo_id,
+              team_id,
+            },
+          );
+        }
+
         const { error: sensitiveMetadataError } = await supabase
           .from("prototype_source_repositories")
           .insert(
             {
               prototype_id: newPrototypeId,
               source_repo_id: source_repo_id,
+              team_id,
             } satisfies TablesInsert<"prototype_source_repositories">,
           );
         if (sensitiveMetadataError) {
