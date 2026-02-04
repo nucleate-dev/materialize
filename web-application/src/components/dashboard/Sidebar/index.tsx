@@ -233,7 +233,7 @@ const DashboardSidebarContent = () => {
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={isCollapsed ? "items-center" : ""}>
               <SidebarMenuItem>
                 <SidebarMenuButton
                   asChild
@@ -265,7 +265,7 @@ const DashboardSidebarContent = () => {
         <SidebarGroup>
           <SidebarGroupLabel>Projects</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className={isCollapsed ? "items-center" : ""}>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton
@@ -298,7 +298,7 @@ const DashboardSidebarContent = () => {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <SidebarMenu>
+        <SidebarMenu className={isCollapsed ? "items-center" : ""}>
           <SidebarMenuItem>
             <HorizontalModeToggle sidebarExpanded={!isCollapsed} />
           </SidebarMenuItem>

@@ -413,7 +413,7 @@ export function TeamSelector({
 
   // Desktop: use DropdownMenu
   return (
-    <SidebarMenu>
+    <SidebarMenu className={isCollapsed ? "items-center" : ""}>
       <SidebarMenuItem>
         <DropdownMenu open={open} onOpenChange={setOpen}>
           <DropdownMenuTrigger asChild>
