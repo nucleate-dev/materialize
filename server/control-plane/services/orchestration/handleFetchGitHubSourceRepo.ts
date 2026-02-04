@@ -38,8 +38,8 @@ export async function handleFetchGitHubSourceRepo(
 
     if (!validation.isValid) {
         const statusCode = validation.errorMessage?.includes(
-                "No active build found for this prototype",
-            )
+            "No active build found for this prototype",
+        )
             ? HTTP_STATUS.NOT_FOUND
             : HTTP_STATUS.UNAUTHORIZED;
 

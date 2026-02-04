@@ -123,7 +123,7 @@ export async function handleConnectGitHubImpl(
       );
 
     // Store GitHub info in developmentServerService
-  const repoMetadata = githubRepo.github_repositories;
+    const repoMetadata = githubRepo.github_repositories;
     developmentServerService.githubRepository = {
       repositoryUrl: repoMetadata.html_url,
       repositoryOwner: repoMetadata.owner_login,
@@ -212,7 +212,7 @@ export async function handleConnectGitHubImpl(
 
     request.log2.info("Successfully pushed commits to GitHub", {
       prototypeId,
-      repositoryFullName: githubRepo.full_name,
+      repositoryFullName: githubRepo.github_repositories.full_name,
       defaultBranch,
     });
 
@@ -223,8 +223,8 @@ export async function handleConnectGitHubImpl(
     return {
       data: {
         message: "Successfully connected to GitHub repository",
-        repository_url: githubRepo.html_url,
-        repository_full_name: githubRepo.full_name,
+        repository_url: githubRepo.github_repositories.html_url,
+        repository_full_name: githubRepo.github_repositories.full_name,
       },
       error: null,
     };
