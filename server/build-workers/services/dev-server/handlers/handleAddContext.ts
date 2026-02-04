@@ -92,31 +92,6 @@ export async function handleAddContextImpl(
     };
   }
 
-  const { error: insertError } = await developmentServerService
-    .supabaseClientService.getClient()
-    .from("prototype_source_repositories")
-    .insert({
-      prototype_id: prototypeId,
-      source_repo_id: github.github_repo_id,
-      team_id: authResult.prototype.team_id,
-    });
-
-  if (insertError) {
-    request.log2.error(
-      insertError,
-      "Failed to insert prototype sensitive metadata",
-      { prototypeId, githubRepoId: github.github_repo_id },
-    );
-    reply.code(HTTP_STATUS.INTERNAL_SERVER_ERROR);
-    return {
-      data: null,
-      error: {
-        error: "Failed to link context",
-        message: insertError.message,
-      },
-    };
-  }
-
   if (!jwtToken) {
     reply.code(HTTP_STATUS.UNAUTHORIZED);
     return {
@@ -195,15 +170,10 @@ export async function handleAddContextImpl(
 
     const { error: updateSourceRepoError } = await supabaseClient
       .from("prototype_source_repositories")
-      .update({
+      .insert({
+        prototype_id: prototypeId,
+        source_repo_id: github.github_repo_id,
         team_id: teamId,
-        installation_id: sourceRepo.installationId,
-        account_login: sourceRepo.repositoryOwner,
-        owner_login: sourceRepo.repositoryOwner,
-        repo_name: sourceRepo.repositoryName,
-        full_name: sourceRepo.fullName,
-        html_url: sourceRepo.repositoryUrl,
-        default_branch: sourceRepo.defaultBranch,
       })
       .eq("prototype_id", prototypeId);
 
