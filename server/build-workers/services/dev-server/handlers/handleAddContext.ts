@@ -178,7 +178,6 @@ export async function handleAddContextImpl(
         team_id: teamId,
         installation_id: sourceRepo.installationId,
         account_login: sourceRepo.repositoryOwner,
-        account_type: "User",
         owner_login: sourceRepo.repositoryOwner,
         repo_name: sourceRepo.repositoryName,
         full_name: sourceRepo.fullName,

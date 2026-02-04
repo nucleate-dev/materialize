@@ -55,8 +55,8 @@ export async function handleCreateRepositoryForPrototypeImpl(
     const repoName = providedName && providedName.length > 0
         ? providedName
         : authResponse.prototype.name?.trim() ||
-            authResponse.prototype.slug?.trim() ||
-            authResponse.prototype.id;
+        authResponse.prototype.slug?.trim() ||
+        authResponse.prototype.id;
 
     const supabaseServiceClient = createClient<Database>(
         process.env.SUPABASE_URL!,
@@ -303,8 +303,7 @@ export async function handleCreateRepositoryForPrototypeImpl(
 
         const githubRepoId = repoData.id;
         const fullName = repoData.full_name ??
-            `${repoData.owner?.login ?? integration.account_login}/${
-                repoData.name ?? repoName
+            `${repoData.owner?.login ?? integration.account_login}/${repoData.name ?? repoName
             }`;
 
         const { error: insertCanonicalRepoError } = await supabaseServiceClient
@@ -314,7 +313,6 @@ export async function handleCreateRepositoryForPrototypeImpl(
                 team_id: teamId,
                 installation_id: integration.installation_id,
                 account_login: integration.account_login,
-                account_type: integration.account_type,
                 owner_login: repoData.owner?.login ?? integration.account_login,
                 repo_name: repoData.name ?? repoName,
                 full_name: fullName,
