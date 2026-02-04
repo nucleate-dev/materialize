@@ -62,7 +62,9 @@ export async function handleStartDevServerImpl(
     const { data: sensitiveMetadata, error: metadataError } =
       await supabaseClient
         .from("prototype_source_repositories")
-        .select("source_repo_id")
+        .select(
+          "source_repo_id, github_repositories(full_name, default_branch, owner_login, repo_name, html_url, installation_id)",
+        )
         .eq("prototype_id", prototype_id)
         .maybeSingle();
 
@@ -279,11 +281,13 @@ export async function handleStartDevServerImpl(
       await developmentServerService.supabaseClientService
         .getClient()
         .from("prototype_github_repositories")
-        .select("*")
-        .eq("github_repo_id", prototypeRow.github_repo_id!)
-        .single();
+        .select(
+          "github_repo_id, team_id, github_repositories(full_name, html_url, owner_login, repo_name, default_branch)",
+        )
+        .eq("prototype_id", prototype_id)
+        .maybeSingle();
 
-    if (githubRepoError || !githubRepo) {
+    if (githubRepoError || !githubRepo?.github_repositories) {
       request.log2.error(
         githubRepoError ?? new Error("GitHub repository not found"),
         "Failed to fetch GitHub repository info",
@@ -321,19 +325,20 @@ export async function handleStartDevServerImpl(
       }
 
       // Store GitHub info in developmentServerService
+      const repoMetadata = githubRepo.github_repositories;
       developmentServerService.githubRepository = {
-        repositoryUrl: githubRepo.html_url,
-        repositoryOwner: githubRepo.owner_login,
-        repositoryName: githubRepo.repo_name,
-        defaultBranch: githubRepo.default_branch || "main",
-        fullName: githubRepo.full_name,
+        repositoryUrl: repoMetadata.html_url,
+        repositoryOwner: repoMetadata.owner_login,
+        repositoryName: repoMetadata.repo_name,
+        defaultBranch: repoMetadata.default_branch || "main",
+        fullName: repoMetadata.full_name,
       };
       applyInstallationToken(tokenData);
 
       request.log2.info("GitHub repository configured for prototype", {
         prototypeId: prototype_id,
-        repositoryFullName: githubRepo.full_name,
-        defaultBranch: githubRepo.default_branch,
+        repositoryFullName: repoMetadata.full_name,
+        defaultBranch: repoMetadata.default_branch,
       });
 
       // Clone the repository instead of initializing git
