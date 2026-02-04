@@ -3755,174 +3755,176 @@ const MaterializeRenderSection = forwardRef<
                   : "justify-between",
               )}
             >
-              {/* Left: View Toggles - hidden in full-screen mode */}
-              {!(isWebFullScreen && previewMode === "web") && (
-                <div className="flex items-center gap-3 flex-wrap">
-                  {/* Expand Chat Button - shown when chat is collapsed */}
-                  {isChatCollapsed && onExpandChat && (
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onExpandChat}
-                            className="h-8 w-8 rounded-lg bg-accent text-muted-foreground hover:text-foreground hover:bg-accent/80 border border-border"
-                          >
-                            <MessageSquare className="w-4 h-4" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p>Open Chat</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Expand Chat Button - shown when chat is collapsed */}
+                {isChatCollapsed && onExpandChat && (
+                  <TooltipProvider delayDuration={200}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={onExpandChat}
+                          className="h-8 w-8 rounded-lg bg-accent text-muted-foreground hover:text-foreground hover:bg-accent/80 border border-border"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Open Chat</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
 
 
-                  {!isReadOnlyView && (
-                    <>
-                      <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handlePreviewToggle(true)}
-                                className={cn(
-                                  "h-7 w-7 rounded-md transition-all",
-                                  isPreviewView
-                                    ? "bg-white text-black shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                )}
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Preview</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                        <TooltipProvider delayDuration={200}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handlePreviewToggle(false)}
-                                className={cn(
-                                  "h-7 w-7 rounded-md transition-all",
-                                  !isPreviewView
-                                    ? "bg-white text-black shadow-sm"
-                                    : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                )}
-                              >
-                                <Code2 className="w-3.5 h-3.5" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p>Code</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
+                {/* Other toggles only shown when not in full screen */}
+                {!(isWebFullScreen && previewMode === "web") && (
+                  <>
+                    {!isReadOnlyView && (
+                      <>
+                        <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handlePreviewToggle(true)}
+                                  className={cn(
+                                    "h-7 w-7 rounded-md transition-all",
+                                    isPreviewView
+                                      ? "bg-white text-black shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                  )}
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Preview</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          <TooltipProvider delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handlePreviewToggle(false)}
+                                  className={cn(
+                                    "h-7 w-7 rounded-md transition-all",
+                                    !isPreviewView
+                                      ? "bg-white text-black shadow-sm"
+                                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                  )}
+                                >
+                                  <Code2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Code</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+
+                        <div className="h-4 w-px bg-border mx-1" />
+
+                        <ConnectionStatusIndicator />
+
+                        {/* Device Type Toggle - only show in preview view when canvas mode is disabled */}
+                        {isPreviewView && !isCanvasPreviewEnabled && (
+                          <>
+                            <div className="h-4 w-px bg-border mx-1" />
+                            <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleModeChange("mobile")}
+                                      className={cn(
+                                        "h-7 w-7 rounded-md transition-all",
+                                        previewMode === "mobile"
+                                          ? "bg-white text-black shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                      )}
+                                    >
+                                      <Smartphone className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Mobile</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleModeChange("tablet")}
+                                      className={cn(
+                                        "h-7 w-7 rounded-md transition-all",
+                                        previewMode === "tablet"
+                                          ? "bg-white text-black shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                      )}
+                                    >
+                                      <Tablet className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Tablet</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                              <TooltipProvider delayDuration={200}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleModeChange("web")}
+                                      className={cn(
+                                        "h-7 w-7 rounded-md transition-all",
+                                        previewMode === "web"
+                                          ? "bg-white text-black shadow-sm"
+                                          : "text-muted-foreground hover:text-foreground hover:bg-accent",
+                                      )}
+                                    >
+                                      <Monitor className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Desktop</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          </>
+                        )}
+
+                        {mobileHint && isMobileLayout && (
+                          <span className="text-xs text-muted-foreground animate-pulse">
+                            {mobileHint}
+                          </span>
+                        )}
+                      </>
+                    )}
+                    {canEditScreensInPublicView && (
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-foreground text-xs font-medium">
+                        <Pencil className="w-3 h-3 text-warning" />
+                        Editing public view
                       </div>
-
-                      <div className="h-4 w-px bg-border mx-1" />
-
-                      <ConnectionStatusIndicator />
-
-                      {/* Device Type Toggle - only show in preview view when canvas mode is disabled */}
-                      {isPreviewView && !isCanvasPreviewEnabled && (
-                        <>
-                          <div className="h-4 w-px bg-border mx-1" />
-                          <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-0.5">
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleModeChange("mobile")}
-                                    className={cn(
-                                      "h-7 w-7 rounded-md transition-all",
-                                      previewMode === "mobile"
-                                        ? "bg-white text-black shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                    )}
-                                  >
-                                    <Smartphone className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Mobile</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleModeChange("tablet")}
-                                    className={cn(
-                                      "h-7 w-7 rounded-md transition-all",
-                                      previewMode === "tablet"
-                                        ? "bg-white text-black shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                    )}
-                                  >
-                                    <Tablet className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Tablet</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                            <TooltipProvider delayDuration={200}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleModeChange("web")}
-                                    className={cn(
-                                      "h-7 w-7 rounded-md transition-all",
-                                      previewMode === "web"
-                                        ? "bg-white text-black shadow-sm"
-                                        : "text-muted-foreground hover:text-foreground hover:bg-accent",
-                                    )}
-                                  >
-                                    <Monitor className="w-3.5 h-3.5" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Desktop</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
-                        </>
-                      )}
-
-                      {mobileHint && isMobileLayout && (
-                        <span className="text-xs text-muted-foreground animate-pulse">
-                          {mobileHint}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {canEditScreensInPublicView && (
-                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-warning/10 border border-warning/30 rounded-full text-foreground text-xs font-medium">
-                      <Pencil className="w-3 h-3 text-warning" />
-                      Editing public view
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </>
+                )}
+              </div>
 
               {/* Right: Actions */}
               <div className="flex items-center gap-2">
