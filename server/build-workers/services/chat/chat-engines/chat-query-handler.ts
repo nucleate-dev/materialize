@@ -54,10 +54,8 @@ import {
 } from "../mcp/mcp-dev-tools.js";
 import {
   getNucleateChatServiceSystemPrompt,
-  getSourceRepositoryComponentHarvesterPrompt,
+  getSourceRepositorySpecialistPrompt,
   getSourceRepositoryPRAgentPrompt,
-  getSourceRepositoryScreenExtractorPrompt,
-  getSourceRepositoryThemeSyncPrompt,
 } from "../prompts/ClaudeCodePrompts.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
@@ -737,7 +735,8 @@ export class ChatQueryHandler implements ChatEngine {
     > = {};
 
     if (hasSourceRepository) {
-      const sourceAgentTools = [
+      // Tools for the specialist agent (source repo → sandbox operations)
+      const specialistTools = [
         "Read",
         "Edit",
         "Glob",
@@ -746,29 +745,28 @@ export class ChatQueryHandler implements ChatEngine {
         "mcp__devtools__SafeBash",
         "mcp__devtools__SafeWrite",
       ];
-      agentConfigs["source-screen-extractor"] = {
+
+      // Tools for the PR agent (sandbox → source repo operations)
+      // Includes PR-specific tools for branch preparation and PR creation
+      const prAgentTools = [
+        ...specialistTools,
+        "mcp__devtools__PrepareSourceRepoBranch",
+        "mcp__devtools__CreateSourceRepoPullRequest",
+        "mcp__devtools__ListSourceRepoPullRequests",
+      ];
+
+      agentConfigs["source-repo-specialist"] = {
         description:
-          "Specialist that finds an existing screen in /tmp/source-repository, copies it plus dependencies into /tmp/materialize-dev-server/client, mocks backend calls, and runs npx tsc to ensure the sandbox builds.",
-        prompt: getSourceRepositoryScreenExtractorPrompt(framework),
-        tools: sourceAgentTools,
+          "Unified specialist for all source repo → sandbox operations: theme synchronization, screen extraction, and component harvesting. Includes auto-fix review loop that verifies builds pass and styles match. Use this agent for any task involving bringing code FROM the source repository INTO the prototype.",
+        prompt: getSourceRepositorySpecialistPrompt(framework),
+        tools: specialistTools,
       };
-      agentConfigs["source-theme-syncer"] = {
-        description:
-          "Theme and token expert that compares the sandbox theme files with the source repo tokens and rewrites sandbox theme files to match exactly.",
-        prompt: getSourceRepositoryThemeSyncPrompt(framework),
-        tools: sourceAgentTools,
-      };
-      agentConfigs["source-component-harvester"] = {
-        description:
-          "Component cataloger who searches the source repo for reusable UI components, copies them into the sandbox, and documents what is now available for the main agent.",
-        prompt: getSourceRepositoryComponentHarvesterPrompt(framework),
-        tools: sourceAgentTools,
-      };
+
       agentConfigs["source-repo-pr-agent"] = {
         description:
-          "Specialist that takes UI changes from the prototype sandbox and recreates them pixel-perfectly in the source repository, wiring up real business logic instead of dummy data. Use this when the user wants to push their prototype changes to the source repo as a PR.",
+          "PR specialist that takes UI from the prototype sandbox and recreates it pixel-perfectly in the source repository with real business logic (no dummy data). Use when the user wants to push prototype changes to the source repo as a PR.",
         prompt: getSourceRepositoryPRAgentPrompt(framework),
-        tools: sourceAgentTools,
+        tools: prAgentTools,
       };
     }
 
