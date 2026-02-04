@@ -308,76 +308,84 @@ export default function ClaudeCodePanelUI({
           <div className="flex items-center gap-2 overflow-hidden">
             <button
               onClick={onPrototypeNameClick}
-              className="text-sm font-medium text-foreground truncate max-w-[120px] hover:text-primary transition-colors cursor-pointer"
+              className="text-sm font-medium text-foreground truncate hover:text-primary transition-colors cursor-pointer"
               title={prototypeTitle}
             >
               {prototypeTitle}
             </button>
           </div>
 
-          {/* Session Selector */}
-          <div className="hidden sm:block">
-            <Select
-              value={
-                prototypeChatSessionId
-                  ? String(prototypeChatSessionId)
-                  : undefined
-              }
-              onValueChange={(value) => {
-                if (value === "new") {
-                  createNewChatSession();
-                } else {
-                  switchChatSession(value);
-                }
-              }}
-            >
-              <SelectTrigger className="w-[140px] h-7 text-xs bg-background border-border text-foreground focus:ring-0 focus:ring-offset-0">
-                <SelectValue placeholder="Session" />
-              </SelectTrigger>
-              <SelectContent className="bg-background border-border">
-                <SelectItem
-                  value="new"
-                  disabled={!isConnected}
-                  className="text-xs cursor-pointer"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Plus className="w-3 h-3" />
-                    New Chat
-                  </span>
-                </SelectItem>
-                {allChatSessions.length > 0 && (
-                  <div className="my-1 h-px bg-border" />
-                )}
-                {allChatSessions.map((session) => {
-                  const date = new Date(session.created_at ?? new Date());
-                  const isToday =
-                    date.toDateString() === new Date().toDateString();
-                  const dateStr = isToday
-                    ? "Today"
-                    : date.toLocaleDateString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                    });
-                  const timeStr = date.toLocaleTimeString(undefined, {
-                    hour: "numeric",
-                    minute: "2-digit",
-                  });
-                  return (
-                    <SelectItem
-                      key={session.id}
-                      value={String(session.id)}
-                      className="text-xs cursor-pointer"
-                    >
-                      {dateStr}, {timeStr}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
+
         </div>
 
         <div className="flex items-center gap-1">
+          <div className="hidden sm:block">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Select
+                    value={
+                      prototypeChatSessionId
+                        ? String(prototypeChatSessionId)
+                        : undefined
+                    }
+                    onValueChange={(value) => {
+                      if (value === "new") {
+                        createNewChatSession();
+                      } else {
+                        switchChatSession(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-7 w-7 p-0 bg-transparent border-0 hover:bg-accent/50 focus:ring-0 focus:ring-offset-0 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground [&>span]:hidden">
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span className="sr-only">Switch Chat Session</span>
+                    </SelectTrigger>
+                    <SelectContent className="bg-background border-border" align="end">
+                      <SelectItem
+                        value="new"
+                        disabled={!isConnected}
+                        className="text-xs cursor-pointer"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Plus className="w-3 h-3" />
+                          New Chat
+                        </span>
+                      </SelectItem>
+                      {allChatSessions.length > 0 && (
+                        <div className="my-1 h-px bg-border" />
+                      )}
+                      {allChatSessions.map((session) => {
+                        const date = new Date(session.created_at ?? new Date());
+                        const isToday =
+                          date.toDateString() === new Date().toDateString();
+                        const dateStr = isToday
+                          ? "Today"
+                          : date.toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                          });
+                        const timeStr = date.toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        });
+                        return (
+                          <SelectItem
+                            key={session.id}
+                            value={String(session.id)}
+                            className="text-xs cursor-pointer"
+                          >
+                            {dateStr}, {timeStr}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" align="end">Chat History</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           {/* View Toggle - Chat / Context */}
           {fileSystem && isProjectContextEnabled && (
             <TooltipProvider>
