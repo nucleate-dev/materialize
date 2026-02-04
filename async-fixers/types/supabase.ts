@@ -688,7 +688,6 @@ export type Database = {
       github_repositories: {
         Row: {
           account_login: string
-          account_type: string
           created_at: string
           default_branch: string
           full_name: string
@@ -705,7 +704,6 @@ export type Database = {
         }
         Insert: {
           account_login: string
-          account_type: string
           created_at?: string
           default_branch: string
           full_name: string
@@ -722,7 +720,6 @@ export type Database = {
         }
         Update: {
           account_login?: string
-          account_type?: string
           created_at?: string
           default_branch?: string
           full_name?: string
