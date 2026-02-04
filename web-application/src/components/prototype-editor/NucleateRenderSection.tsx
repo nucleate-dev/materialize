@@ -111,11 +111,11 @@ import {
   HTTP_STATUS,
   PublicDevServerRestartSuccessResponse,
 } from "@/lib/types/SandboxAPITypes";
-import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 import { CloudIntegrationsDropdown } from "./CloudIntegrationsDropdown";
+import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
 // Import PreviewCanvas for infinite canvas mode
-import type { CanvasStateData, PreviewCanvasRef, AIActionType, GlobalAIAction } from "./canvas";
+import type { AIActionType, CanvasStateData, GlobalAIAction, PreviewCanvasRef } from "./canvas";
 import { PreviewCanvas } from "./canvas";
 
 export interface MobileScreenConfig {
@@ -734,7 +734,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string }>
+      Array<{ route: string; group?: string; }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
@@ -1162,7 +1162,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string }> = [];
+      const routes: Array<{ route: string; group?: string; }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -2284,7 +2284,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -2301,7 +2301,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -2603,8 +2603,8 @@ const MaterializeRenderSection = forwardRef<
                                   // Disable pointer events during any resize so mouse events reach the document
                                   pointerEvents:
                                     isResizingMobile ||
-                                    isResizingWebFrame ||
-                                    isResizingTerminal
+                                      isResizingWebFrame ||
+                                      isResizingTerminal
                                       ? "none"
                                       : "auto",
                                 }}
@@ -2884,8 +2884,8 @@ const MaterializeRenderSection = forwardRef<
                                   // Disable pointer events during any resize so mouse events reach the document
                                   pointerEvents:
                                     isResizingMobile ||
-                                    isResizingWebFrame ||
-                                    isResizingTerminal
+                                      isResizingWebFrame ||
+                                      isResizingTerminal
                                       ? "none"
                                       : "auto",
                                 }}
@@ -2954,17 +2954,17 @@ const MaterializeRenderSection = forwardRef<
                 : "grid",
               // Center single screen when manually resized or in mobile size mode
               !showWebMultiScreen &&
-                hasManuallyResizedWebFrame &&
-                "items-start justify-center",
+              hasManuallyResizedWebFrame &&
+              "items-start justify-center",
               isWebMobileSize && "items-center justify-center",
               isWebFullScreen && "items-center justify-center",
             )}
             style={{
               gridTemplateColumns:
                 !showWebMultiScreen ||
-                isNarrowViewport ||
-                isWebMobileSize ||
-                isWebFullScreen
+                  isNarrowViewport ||
+                  isWebMobileSize ||
+                  isWebFullScreen
                   ? "1fr"
                   : webGridLayout.gridTemplate,
             }}
@@ -2989,50 +2989,50 @@ const MaterializeRenderSection = forwardRef<
                       "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300 min-w-0",
                       isWebMobileSize && !isWebFullScreen && "mx-auto",
                       isWebFullScreen &&
-                        "absolute inset-4 z-50 mx-auto shadow-2xl",
+                      "absolute inset-4 z-50 mx-auto shadow-2xl",
                     )}
                     style={{
                       // Full-screen mode takes priority
                       ...(isWebFullScreen
                         ? isWebMobileSize
                           ? {
-                              // Full-screen + mobile size: centered mobile width, full height
-                              width: webMobileSizeWidth,
-                              maxWidth: "100%",
-                              inset: "1rem auto",
-                              left: "50%",
-                              transform: "translateX(-50%)",
-                            }
+                            // Full-screen + mobile size: centered mobile width, full height
+                            width: webMobileSizeWidth,
+                            maxWidth: "100%",
+                            inset: "1rem auto",
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                          }
                           : {
-                              // Full-screen only: fill the area
-                            }
+                            // Full-screen only: fill the area
+                          }
                         : isWebMobileSize
                           ? {
-                              // Mobile size only: constrained dimensions
-                              width: webMobileSizeWidth,
-                              height: webMobileSizeHeight,
-                              maxWidth: "100%",
-                            }
+                            // Mobile size only: constrained dimensions
+                            width: webMobileSizeWidth,
+                            height: webMobileSizeHeight,
+                            maxWidth: "100%",
+                          }
                           : showWebMultiScreen && webScreens.length > 1
                             ? {
-                                // Multiple screens: use minHeight for grid layout
-                                minHeight: webFrameHeight,
-                              }
+                              // Multiple screens: use minHeight for grid layout
+                              minHeight: webFrameHeight,
+                            }
                             : showWebMultiScreen && webScreens.length === 1
                               ? {
-                                  // Single screen in grid mode: fill container
-                                  height: "100%",
-                                  maxWidth: "100%",
-                                }
+                                // Single screen in grid mode: fill container
+                                height: "100%",
+                                maxWidth: "100%",
+                              }
                               : hasManuallyResizedWebFrame
                                 ? {
-                                    width: webFrameWidth ?? undefined,
-                                    height: webFrameHeight,
-                                    maxWidth: "100%",
-                                  }
+                                  width: webFrameWidth ?? undefined,
+                                  height: webFrameHeight,
+                                  maxWidth: "100%",
+                                }
                                 : {
-                                    height: "100%",
-                                  }),
+                                  height: "100%",
+                                }),
                     }}
                   >
                     {/* Browser Header */}
@@ -3124,8 +3124,8 @@ const MaterializeRenderSection = forwardRef<
                       {/* URL Bar */}
                       <div className="flex-1 flex justify-center min-w-0 overflow-hidden">
                         {showWebControls &&
-                        showScreenControls &&
-                        !isReadOnlyView ? (
+                          showScreenControls &&
+                          !isReadOnlyView ? (
                           <Popover
                             open={editingWebScreenId === screen.id}
                             onOpenChange={(open) => {
@@ -3361,8 +3361,8 @@ const MaterializeRenderSection = forwardRef<
                           // Disable pointer events during any resize so mouse events reach the document
                           pointerEvents:
                             isResizingMobile ||
-                            isResizingWebFrame ||
-                            isResizingTerminal
+                              isResizingWebFrame ||
+                              isResizingTerminal
                               ? "none"
                               : "auto",
                         }}
@@ -3779,6 +3779,7 @@ const MaterializeRenderSection = forwardRef<
                     </TooltipProvider>
                   )}
 
+
                   {!isReadOnlyView && (
                     <>
                       <div className="bg-accent p-1 rounded-lg border border-border flex items-center gap-1">
@@ -4124,7 +4125,7 @@ const MaterializeRenderSection = forwardRef<
                             : githubRepository.html_url
                               ? "View Repository"
                               : githubIntegration.connected &&
-                                  currentUserMembership?.role !== "viewer"
+                                currentUserMembership?.role !== "viewer"
                                 ? "Create Repository For Project"
                                 : "Connect GitHub"}
                         </Button>
@@ -4416,13 +4417,13 @@ const MaterializeRenderSection = forwardRef<
                 initialScreens={
                   previewMode === "mobile"
                     ? (initialScreens || mobileScreens).map((s) => ({
-                        id: s.id,
-                        path: s.path,
-                      }))
+                      id: s.id,
+                      path: s.path,
+                    }))
                     : (initialWebScreens || webScreens).map((s) => ({
-                        id: s.id,
-                        path: s.path,
-                      }))
+                      id: s.id,
+                      path: s.path,
+                    }))
                 }
                 initialCanvasState={initialCanvasState}
                 onCanvasStateChange={onCanvasStateChange}
