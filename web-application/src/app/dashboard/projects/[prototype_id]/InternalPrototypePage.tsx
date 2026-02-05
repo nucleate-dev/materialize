@@ -216,10 +216,14 @@ export default function InternalPrototypePage() {
         Notification.permission === "granted"
       ) {
         try {
-          new Notification("Nucleate", {
+          const notification = new Notification("Nucleate", {
             body: "Your changes are ready!",
             icon: "/icon.svg",
           });
+          notification.onclick = () => {
+            window.focus();
+            notification.close();
+          };
         } catch (e) {
           // Ignore notification errors
         }
