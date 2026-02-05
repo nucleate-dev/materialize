@@ -71,10 +71,13 @@ export function getNucleateChatServiceSystemPrompt(
   const backendAddendum = prototypeBackend
     ? getPrototypeBackendPromptAddendum(prototypeBackend)
     : "";
+  const isWeb = framework === "web_nextjs_react" || framework === "web_vite_react";
+  const buildVerification = isWeb ? getWebBuildVerification(framework!) : "";
 
   // Order matters for prompt caching: static content first, dynamic content last
   // screenContext contains dynamic state (visible screens, focused screen) so it goes at the end
   return basePrompt + "\n\n" + stackInfo + "\n\n" + SHARED_SECTIONS + "\n\n" +
+    buildVerification + (buildVerification ? "\n\n" : "") +
     sourceRepositoryAddendum + (sourceRepositoryAddendum ? "\n\n" : "") +
     backendAddendum + (backendAddendum ? "\n\n" : "") + screenContext;
 }
@@ -298,7 +301,7 @@ const NEXTJS_STACK_INFO = `
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
 10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 11. Next.js prototypes must support SSR. Avoid referencing browser globals inside Server Components. Move DOM-dependent logic into Client Components and guard optional APIs.
-12. CRITICAL - Build Verification: After EVERY change, run \`cd /tmp/materialize-dev-server/client && npm run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors, missing imports, and SSR issues are caught early.
+12. Build Verification: See the <mandatory_build_verification> section — you MUST run a build check and verify with checkTerminal after every change.
 </stack_info>
 `;
 
@@ -330,10 +333,41 @@ const VITE_STACK_INFO = `
 9. Use SafeWrite/SafeBash tools exactly as documented. Restart the dev server after package installs.
 10. NEVER use Alert.alert() — it does not work on web and cannot be tested. Instead, create custom modal components or use toast notifications for user feedback.
 11. Environment variables: Use \`import.meta.env.VITE_*\` to access environment variables. All client-side env vars must be prefixed with VITE_.
-12. CRITICAL - Build Verification: After EVERY change, run \`cd /tmp/materialize-dev-server/client && bun run build\` via SafeBash to verify the app builds successfully. If the build fails, analyze the errors and fix them before proceeding. This ensures TypeScript errors and missing imports are caught early.
+12. Build Verification: See the <mandatory_build_verification> section — you MUST run a build check and verify with checkTerminal after every change.
 13. Package Management: This project uses **bun** as the package manager. Use \`bun install\` to install dependencies, \`bun add <package>\` to add new packages, and \`bun run <script>\` to run scripts.
 </stack_info>
 `;
+
+function getWebBuildVerification(framework: string): string {
+  const buildCmd = framework === "web_vite_react"
+    ? "bun run build"
+    : "npm run build";
+  return `
+<mandatory_build_verification>
+## MANDATORY: Build Verification Gate
+
+You MUST complete the following verification as your FINAL action before responding to the user after making ANY code changes. This is a hard requirement, not optional.
+
+**After completing ALL code changes for a user request:**
+
+1. Run the build command via SafeBash:
+   \`cd /tmp/materialize-dev-server/client && ${buildCmd}\`
+
+2. Use checkTerminal (mcp__devtools__checkTerminal) to read the build output and verify it succeeded.
+
+3. If the build FAILED:
+   - Analyze the error output from checkTerminal
+   - Fix all errors
+   - Re-run the build command
+   - Re-check with checkTerminal
+   - Repeat until the build passes
+
+4. Only after a CLEAN build may you write your final response to the user.
+
+Do NOT skip this step. Do NOT respond to the user before verifying the build passes. A failing build means the user will see a broken app.
+</mandatory_build_verification>
+`;
+}
 
 const SHARED_SECTIONS = `
 <general_design_guidelines>
@@ -348,7 +382,7 @@ Think outside the box and surprise the user. Try to think of similar apps or app
    - The SafeWrite tool is specifically configured for this environment and ensures proper file permissions and tracking.
 2. CRITICAL: When running bash commands, you MUST use the SafeBash tool (mcp__devtools__SafeBash) instead of the built-in Bash tool, and only run bash commands that finish. Only run one command at a time, since all commands run in the same terminal.
 3. CRITICAL: If you use a package, you should verify that it is installed; else, install it. After running any package installation (ex npm install) commands, you MUST use the RestartDevServer tool (mcp__devtools__RestartDevServer) to restart the dev server.
-4. The checkTerminal tool (mcp__devtools__checkTerminal) should be used when you need to debug errors or check for issues in the dev server.
+4. The checkTerminal tool (mcp__devtools__checkTerminal) should be used to: (a) debug errors or check for issues in the dev server, and (b) verify build output after running build commands. Always use checkTerminal to confirm build success rather than relying solely on SafeBash output.
 </development_tool_usage>
 
 <design_tool_usage>
