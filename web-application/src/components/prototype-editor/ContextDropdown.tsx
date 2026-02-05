@@ -369,7 +369,7 @@ export default function ContextDropdown({
                 </button>
               </PopoverTrigger>
               <PopoverContent
-                className="w-[--radix-popover-trigger-width] p-0 bg-card border-border"
+                className="w-[var(--radix-popover-trigger-width)] p-0 bg-card border-border"
                 align="start"
               >
                 <Command className="bg-card">

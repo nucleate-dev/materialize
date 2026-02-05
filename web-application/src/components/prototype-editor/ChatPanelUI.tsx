@@ -25,7 +25,7 @@ import { cn } from "@/lib/classNames"; // Assuming cn utility exists
 import type { AuthMode } from "@/lib/utils/authModeUtils";
 import {
   ArrowDown,
-  Atom,
+
   Check,
   ChevronDown,
   ChevronRight,
@@ -47,7 +47,7 @@ import {
   Undo2,
   X,
 } from "lucide-react";
-import Link from "next/link";
+
 import type {
   ChangeEvent,
   KeyboardEvent,
@@ -308,13 +308,6 @@ export default function ClaudeCodePanelUI({
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-accent/50 h-14 shrink-0">
         <div className="flex items-center gap-3 flex-1 overflow-hidden">
           <div className="flex items-center gap-2 overflow-hidden">
-            <Link
-              href="/dashboard/projects"
-              className="flex items-center justify-center h-7 w-7 rounded-sm hover:bg-muted text-primary transition-colors shrink-0"
-              title="Back to Projects"
-            >
-              <Atom className="w-4 h-4" />
-            </Link>
             <button
               onClick={onPrototypeNameClick}
               className="text-sm font-medium text-foreground truncate hover:text-primary transition-colors cursor-pointer"

@@ -21,8 +21,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { useUserTeams } from "@/hooks/useUserTeams";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -630,14 +630,10 @@ export default function PrototypePage() {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="flex w-full h-screen bg-white dark:bg-background">
-        {isAuthenticated && <DashboardSidebar />}
-        <main className="flex flex-1 flex-col h-full min-w-0 overflow-hidden bg-white dark:bg-background">
-          {/* Header with Sidebar Trigger */}
+      {isAuthenticated && <DashboardSidebar />}
+      <SidebarInset className="flex flex-col h-screen min-w-0 overflow-hidden bg-white dark:bg-background">
+          {/* Header */}
           <div className="flex items-center gap-4 p-4 border-b border-gray-200 dark:border-border bg-gray-50/50 dark:bg-white/[0.02]">
-            {isAuthenticated && (
-              <SidebarTrigger className="text-gray-500 dark:text-muted-foreground hover:bg-gray-100 dark:hover:bg-muted" />
-            )}
             <div className="flex-1">
               <PublicPrototypeHeader
                 prototype={prototype}
@@ -709,8 +705,7 @@ export default function PrototypePage() {
               </div>
             )}
           </div>
-        </main>
-      </div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
