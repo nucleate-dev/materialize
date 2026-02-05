@@ -3124,9 +3124,7 @@ const MaterializeRenderSection = forwardRef<
 
                       {/* URL Bar */}
                       <div className="flex-1 flex justify-center min-w-0 overflow-hidden">
-                        {showWebControls &&
-                          showScreenControls &&
-                          !isReadOnlyView ? (
+                        {showWebControls && !isReadOnlyView ? (
                           <Popover
                             open={editingWebScreenId === screen.id}
                             onOpenChange={(open) => {
