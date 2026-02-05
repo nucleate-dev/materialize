@@ -48,6 +48,8 @@ export interface CanvasStateData {
   screenOrder?: number[];
   /** Web screens for multi-screen grid mode (persisted for reload/public view) */
   webScreens?: { id: number; path: string }[];
+  /** Mobile screens for grid mode (persisted for reload/public view) */
+  mobileScreens?: { id: number; path: string }[];
 }
 
 /**
