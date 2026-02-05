@@ -188,6 +188,9 @@ export default function InternalPrototypePage() {
   // Canvas state for infinite canvas mode
   const [canvasState, setCanvasState] = useState<CanvasStateData | null>(null);
   const canvasSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Guard to prevent saving screen configs during initial state cycling
+  // (screens cycle: restored from DB → cleared by child when viewing_url is null → restored when viewing_url arrives)
+  const screensSaveEnabledRef = useRef(false);
 
   // Document generation modal state (for PRD and design critique)
   const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
@@ -315,7 +318,7 @@ export default function InternalPrototypePage() {
     [logger],
   );
 
-  // Handle canvas state changes with debounced save
+  // Handle canvas state changes with debounced save (read-merge-write to preserve screen configs)
   const handleCanvasStateChange = useCallback(
     (state: CanvasStateData) => {
       // Clear any existing timeout
@@ -327,16 +330,26 @@ export default function InternalPrototypePage() {
       canvasSaveTimeoutRef.current = setTimeout(async () => {
         if (!prototypeId) return;
 
-        // Cast to Json type for Supabase compatibility
+        // Read current prototype_context to merge with (preserves screen configs from unified save)
+        const { data: currentPrototype } = await supabase
+          .from("prototypes")
+          .select("prototype_context")
+          .eq("id", prototypeId)
+          .single();
+
+        const currentContext = (currentPrototype?.prototype_context as PrototypeContextData) || {};
+        const currentCanvas: Partial<CanvasStateData> = currentContext.canvas || {};
+
         const contextToSave = {
           canvas: {
+            ...currentCanvas,
             screens: state.screens,
             zoom: state.zoom,
             camera: state.camera,
             previewMode: state.previewMode,
             lastModified: state.lastModified,
-            webScreens: webScreensState.length > 0 ? webScreensState.map(s => ({ id: s.id, path: s.path })) : undefined,
-            mobileScreens: mobileScreensState.length > 0 ? mobileScreensState.map(s => ({ id: s.id, path: s.path })) : undefined,
+            webScreens: webScreensState.length > 0 ? webScreensState.map(s => ({ id: s.id, path: s.path })) : currentCanvas.webScreens,
+            mobileScreens: mobileScreensState.length > 0 ? mobileScreensState.map(s => ({ id: s.id, path: s.path })) : currentCanvas.mobileScreens,
           },
         };
 
@@ -367,12 +380,21 @@ export default function InternalPrototypePage() {
     };
   }, []);
 
+  // Enable screen saving once viewing URL is available (initial state cycling is complete)
+  useEffect(() => {
+    if (viewingUrl) {
+      screensSaveEnabledRef.current = true;
+    }
+  }, [viewingUrl]);
+
   // Save screen configurations when they change (unified save for both mobile and web)
   // This ensures grid configuration is persisted even without canvas interactions
   const screensSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    // Skip on initial render or when both screen lists are empty (default state)
+    // Skip until initial state cycling completes (viewing_url must be set first)
+    if (!screensSaveEnabledRef.current) return;
     if (!prototypeId) return;
+    // Skip when both screen lists are empty (transient state during screen cycling)
     if (mobileScreensState.length === 0 && webScreensState.length === 0) return;
 
     // Clear any existing timeout
@@ -390,17 +412,17 @@ export default function InternalPrototypePage() {
         .single();
 
       const currentContext = (currentPrototype?.prototype_context as PrototypeContextData) || {};
-      const currentCanvas = currentContext.canvas || {};
+      const currentCanvas: Partial<CanvasStateData> = currentContext.canvas || {};
 
       const contextToSave = {
         canvas: {
           ...currentCanvas,
           mobileScreens: mobileScreensState.length > 0
             ? mobileScreensState.map(s => ({ id: s.id, path: s.path }))
-            : undefined,
+            : currentCanvas.mobileScreens,
           webScreens: webScreensState.length > 0
             ? webScreensState.map(s => ({ id: s.id, path: s.path }))
-            : undefined,
+            : currentCanvas.webScreens,
           previewMode,
         },
       };
@@ -655,6 +677,10 @@ export default function InternalPrototypePage() {
           }
           if (context.canvas.mobileScreens?.length) {
             setMobileScreensState(context.canvas.mobileScreens);
+          }
+          // Restore preview mode (mobile/web/tablet)
+          if (context.canvas.previewMode) {
+            setPreviewMode(context.canvas.previewMode);
           }
         }
       }
