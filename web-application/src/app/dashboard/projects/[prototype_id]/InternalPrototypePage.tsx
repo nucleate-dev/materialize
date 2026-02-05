@@ -332,6 +332,7 @@ export default function InternalPrototypePage() {
             previewMode: state.previewMode,
             lastModified: state.lastModified,
             webScreens: webScreensState.length > 0 ? webScreensState.map(s => ({ id: s.id, path: s.path })) : undefined,
+            mobileScreens: mobileScreensState.length > 0 ? mobileScreensState.map(s => ({ id: s.id, path: s.path })) : undefined,
           },
         };
 
@@ -350,7 +351,7 @@ export default function InternalPrototypePage() {
         }
       }, 1000);
     },
-    [prototypeId, logger, webScreensState],
+    [prototypeId, logger, webScreensState, mobileScreensState],
   );
 
   // Cleanup canvas save timeout on unmount
@@ -362,20 +363,21 @@ export default function InternalPrototypePage() {
     };
   }, []);
 
-  // Save webScreens when they change (separate from canvas state changes)
+  // Save screen configurations when they change (unified save for both mobile and web)
   // This ensures grid configuration is persisted even without canvas interactions
-  const webScreensSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const screensSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    // Skip on initial render or when webScreens is empty (default state)
-    if (!prototypeId || webScreensState.length === 0) return;
+    // Skip on initial render or when both screen lists are empty (default state)
+    if (!prototypeId) return;
+    if (mobileScreensState.length === 0 && webScreensState.length === 0) return;
 
     // Clear any existing timeout
-    if (webScreensSaveTimeoutRef.current) {
-      clearTimeout(webScreensSaveTimeoutRef.current);
+    if (screensSaveTimeoutRef.current) {
+      clearTimeout(screensSaveTimeoutRef.current);
     }
 
     // Debounce the save
-    webScreensSaveTimeoutRef.current = setTimeout(async () => {
+    screensSaveTimeoutRef.current = setTimeout(async () => {
       // First fetch current prototype_context to merge with
       const { data: currentPrototype } = await supabase
         .from("prototypes")
@@ -389,7 +391,13 @@ export default function InternalPrototypePage() {
       const contextToSave = {
         canvas: {
           ...currentCanvas,
-          webScreens: webScreensState.map(s => ({ id: s.id, path: s.path })),
+          mobileScreens: mobileScreensState.length > 0
+            ? mobileScreensState.map(s => ({ id: s.id, path: s.path }))
+            : undefined,
+          webScreens: webScreensState.length > 0
+            ? webScreensState.map(s => ({ id: s.id, path: s.path }))
+            : undefined,
+          previewMode,
         },
       };
 
@@ -402,18 +410,18 @@ export default function InternalPrototypePage() {
         .eq("id", prototypeId);
 
       if (error) {
-        logger.debug("error", "Failed to save webScreens:", { error });
+        logger.debug("error", "Failed to save screen configs:", { error });
       } else {
-        logger.debug("log", "webScreens saved successfully");
+        logger.debug("log", "Screen configs saved successfully");
       }
     }, 1000);
 
     return () => {
-      if (webScreensSaveTimeoutRef.current) {
-        clearTimeout(webScreensSaveTimeoutRef.current);
+      if (screensSaveTimeoutRef.current) {
+        clearTimeout(screensSaveTimeoutRef.current);
       }
     };
-  }, [prototypeId, webScreensState, logger]);
+  }, [prototypeId, mobileScreensState, webScreensState, previewMode, logger]);
 
   const canEditDesignSystem = Boolean(
     prototype && user && prototype.owner_id === user.id,
@@ -637,9 +645,12 @@ export default function InternalPrototypePage() {
         const context = data.prototype_context as PrototypeContextData;
         if (context.canvas) {
           setCanvasState(context.canvas);
-          // Also restore webScreens from canvas state if available
+          // Restore screen configs from canvas state
           if (context.canvas.webScreens?.length) {
             setWebScreensState(context.canvas.webScreens);
+          }
+          if (context.canvas.mobileScreens?.length) {
+            setMobileScreensState(context.canvas.mobileScreens);
           }
         }
       }
@@ -1490,7 +1501,9 @@ Provide actionable recommendations.`,
                 canEditDesignSystem ? handleOpenDesignSystemDialog : undefined
               }
               onCurrentPathChange={setCurrentViewingPath}
+              initialScreens={canvasState?.mobileScreens}
               onScreensChange={setMobileScreensState}
+              initialWebScreens={canvasState?.webScreens}
               onWebScreensChange={setWebScreensState}
               onPreviewModeChange={setPreviewMode}
               initialCanvasState={canvasState ?? undefined}
