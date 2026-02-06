@@ -322,7 +322,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
       "claude",
     );
-    const [model, setModel] = useState<string>("gpt-5.1-codex-mini");
+    const [model, setModel] = useState<string>("claude-sonnet-4-5");
     const vercelModelOptions = useMemo(
       () => [
         { value: "gpt-5.1-codex-mini", label: "GPT-5.1 Codex Mini" },
@@ -332,18 +332,23 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       ],
       [],
     );
+    const claudeModelOptions = useMemo(
+      () => [
+        { value: "claude-sonnet-4-5", label: "Sonnet 4.5" },
+        { value: "claude-opus-4-6", label: "Opus 4.6" },
+        { value: "claude-haiku-4-5", label: "Haiku 4.5" },
+      ],
+      [],
+    );
 
     useEffect(() => {
-      if (modelProvider === "vercel") {
-        const firstModel = vercelModelOptions[0]?.value;
-        const isValidModel = vercelModelOptions.some(
-          (option) => option.value === model,
-        );
-        if (!isValidModel && firstModel) {
-          setModel(firstModel);
-        }
+      const currentOptions =
+        modelProvider === "vercel" ? vercelModelOptions : claudeModelOptions;
+      const isValidModel = currentOptions.some((opt) => opt.value === model);
+      if (!isValidModel && currentOptions[0]?.value) {
+        setModel(currentOptions[0].value);
       }
-    }, [modelProvider, model, vercelModelOptions]);
+    }, [modelProvider, model, vercelModelOptions, claudeModelOptions]);
 
     // Handler to change auth mode and optionally notify sandbox
     const sendAuthModePreference = useCallback(
@@ -1175,7 +1180,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                   token: authTokenRef.current,
                   options: {
                     provider: modelProvider,
-                    model: modelProvider === "vercel" ? model : undefined,
+                    model: model,
                   },
                   // Force new session if corrupted, otherwise use existing session
                   ai_chat_session_id: isCorruptedSession
@@ -2416,7 +2421,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
                 token,
                 options: {
                   provider: modelProvider,
-                  model: modelProvider === "vercel" ? model : undefined,
+                  model: model,
                 },
                 ai_chat_session_id: isCorruptedSession
                   ? null
@@ -2766,6 +2771,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         modelProvider={modelProvider}
         model={model}
         vercelModels={vercelModelOptions}
+        claudeModels={claudeModelOptions}
         onModelProviderChange={handleModelProviderChange}
         onModelChange={handleModelChange}
         messages={messages}
