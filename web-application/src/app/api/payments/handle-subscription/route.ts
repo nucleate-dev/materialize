@@ -1464,19 +1464,19 @@ function getSubscriptionChangeType(
  * Calculates credits for subscription upgrades.
  *
  * Upgrades take effect immediately with prorated billing. Credits are calculated
- * based on the actual amount paid to ensure fair prorated credit allocation.
+ * based on 75% of the dollar-equivalent credit value of the amount paid.
  *
- * Formula: credits = (amount_paid_in_dollars) / 0.25
- * Example: $25 paid → 25 / 0.25 = 100 credits
- * Example: $20 prorated → 20 / 0.25 = 80 credits
+ * Formula: credits = 0.75 * (amount_paid_in_dollars / 0.25)
+ * Example: $25 paid → 0.75 * (25 / 0.25) = 75 credits
+ * Example: $20 prorated → 0.75 * (20 / 0.25) = 60 credits
  *
  * @param amountPaidInCents - The amount paid in cents from the Stripe invoice
  * @returns The number of credits to grant, rounded to nearest whole number
  */
 function calculateUpgradeCredits(amountPaidInCents: number): number {
-  // Convert cents to dollars, divide by $0.25 per credit, round to nearest whole number
-  // amountPaidInCents / 100 / 0.25 = amountPaidInCents / 25
-  const credits = Math.round(amountPaidInCents / 25);
+  // Convert cents to dollars, divide by $0.25 per credit, take 75%, round to nearest whole number
+  // 0.75 * (amountPaidInCents / 100 / 0.25) = 0.75 * (amountPaidInCents / 25)
+  const credits = Math.round(0.75 * (amountPaidInCents / 25));
   return credits;
 }
 

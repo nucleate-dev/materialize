@@ -4,8 +4,8 @@
  */
 export const CreditLimits = Object.freeze({
   FREE: 15,
-  PLUS: 100,
+  PLUS: 30,
   PRO: 250,
   MAX: 1000,
-  TEAM: 10000,
+  TEAM: 35,
 });

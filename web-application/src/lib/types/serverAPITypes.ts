@@ -21,8 +21,8 @@ import type { Database } from "../types/supabase.js";
  */
 export const CreditLimits = Object.freeze({
   FREE: 15,
-  PLUS: 100,
-  TEAM: 140,
+  PLUS: 30,
+  TEAM: 35,
   PRO: 250,
   MAX: 1000,
 });
