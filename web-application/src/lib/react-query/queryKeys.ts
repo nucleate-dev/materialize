@@ -50,3 +50,32 @@ export const teamSettingsQueryKey = (teamId?: string | null) => [
   TEAM_SETTINGS_QUERY_KEY,
   teamId ?? "no-team",
 ];
+
+// Team customizations (skills, subagents, MCP servers)
+export const TEAM_SKILLS_QUERY_KEY = "team-skills";
+
+export const teamSkillsQueryKey = (teamId?: string | null) => [
+  TEAM_SKILLS_QUERY_KEY,
+  teamId ?? "no-team",
+];
+
+export const TEAM_SUBAGENTS_QUERY_KEY = "team-subagents";
+
+export const teamSubagentsQueryKey = (teamId?: string | null) => [
+  TEAM_SUBAGENTS_QUERY_KEY,
+  teamId ?? "no-team",
+];
+
+export const TEAM_MCP_SERVERS_QUERY_KEY = "team-mcp-servers";
+
+export const teamMcpServersQueryKey = (teamId?: string | null) => [
+  TEAM_MCP_SERVERS_QUERY_KEY,
+  teamId ?? "no-team",
+];
+
+export const PROTOTYPE_AI_CONFIG_OVERRIDES_QUERY_KEY =
+  "prototype-ai-config-overrides";
+
+export const prototypeAiConfigOverridesQueryKey = (
+  prototypeId?: string | null,
+) => [PROTOTYPE_AI_CONFIG_OVERRIDES_QUERY_KEY, prototypeId ?? "no-prototype"];

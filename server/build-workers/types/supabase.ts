@@ -1232,6 +1232,44 @@ export type Database = {
           },
         ]
       }
+      prototype_ai_config_overrides: {
+        Row: {
+          config_id: string
+          config_type: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          prototype_id: string
+          updated_at: string
+        }
+        Insert: {
+          config_id: string
+          config_type: string
+          created_at?: string
+          id?: string
+          is_enabled: boolean
+          prototype_id: string
+          updated_at?: string
+        }
+        Update: {
+          config_id?: string
+          config_type?: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          prototype_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prototype_ai_config_overrides_prototype_id_fkey"
+            columns: ["prototype_id"]
+            isOneToOne: false
+            referencedRelation: "prototypes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prototype_source_repositories: {
         Row: {
           created_at: string
@@ -1533,6 +1571,71 @@ export type Database = {
           },
         ]
       }
+      team_mcp_servers: {
+        Row: {
+          auth_header_name: string | null
+          auth_token_encrypted: string | null
+          auth_type: string | null
+          created_at: string
+          created_by_user_id: string | null
+          custom_headers: Json
+          description: string | null
+          health_status: string
+          id: string
+          is_enabled: boolean
+          last_health_check_at: string | null
+          server_name: string
+          server_url: string
+          team_id: string
+          transport_type: string
+          updated_at: string
+        }
+        Insert: {
+          auth_header_name?: string | null
+          auth_token_encrypted?: string | null
+          auth_type?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          custom_headers?: Json
+          description?: string | null
+          health_status?: string
+          id?: string
+          is_enabled?: boolean
+          last_health_check_at?: string | null
+          server_name: string
+          server_url: string
+          team_id: string
+          transport_type?: string
+          updated_at?: string
+        }
+        Update: {
+          auth_header_name?: string | null
+          auth_token_encrypted?: string | null
+          auth_type?: string | null
+          created_at?: string
+          created_by_user_id?: string | null
+          custom_headers?: Json
+          description?: string | null
+          health_status?: string
+          id?: string
+          is_enabled?: boolean
+          last_health_check_at?: string | null
+          server_name?: string
+          server_url?: string
+          team_id?: string
+          transport_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_mcp_servers_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_settings: {
         Row: {
           created_at: string
@@ -1558,6 +1661,97 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_skills: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          description: string | null
+          id: string
+          is_enabled: boolean
+          name: string
+          skill_content: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name: string
+          skill_content: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string | null
+          id?: string
+          is_enabled?: boolean
+          name?: string
+          skill_content?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_skills_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_subagents: {
+        Row: {
+          agent_name: string
+          allowed_tools: string[]
+          created_at: string
+          created_by_user_id: string | null
+          description: string
+          id: string
+          is_enabled: boolean
+          system_prompt: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          agent_name: string
+          allowed_tools?: string[]
+          created_at?: string
+          created_by_user_id?: string | null
+          description: string
+          id?: string
+          is_enabled?: boolean
+          system_prompt: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          agent_name?: string
+          allowed_tools?: string[]
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string
+          id?: string
+          is_enabled?: boolean
+          system_prompt?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_subagents_team_id_fkey"
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"

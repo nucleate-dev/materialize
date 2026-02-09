@@ -59,6 +59,11 @@ import {
   getSourceRepositoryScreenExtractorPrompt,
   getSourceRepositoryThemeSyncPrompt,
 } from "../prompts/ClaudeCodePrompts.js";
+import {
+  UserSkillsService,
+  UserSubagentsService,
+  UserMcpServersService,
+} from "../user-config/index.js";
 import { broadcastToConnections } from "../websocket-broadcast.js";
 import {
   ChatConnection,
@@ -772,15 +777,83 @@ export class ChatQueryHandler implements ChatEngine {
       };
     }
 
+    // ---------------------------------------------------------------------------
+    // Load user-defined customizations (skills, subagents, MCP servers)
+    // ---------------------------------------------------------------------------
+    const { teamId, prototypeId } = getWorkerContext();
+    if (teamId) {
+      const supabaseClient = this.supabaseClientService.getClient();
+
+      // 1. Load and write user-defined skills to filesystem for SDK discovery
+      try {
+        const userSkillsService = new UserSkillsService(
+          supabaseClient,
+          baseLogger,
+        );
+        await userSkillsService.loadAndWriteSkills(teamId, prototypeId);
+      } catch (error) {
+        baseLogger.warn("Failed to load user skills", {
+          teamId,
+          prototypeId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // 2. Load and merge user-defined subagents
+      try {
+        const userSubagentsService = new UserSubagentsService(
+          supabaseClient,
+          baseLogger,
+        );
+        const userAgentConfigs = await userSubagentsService.getAgentConfigs(
+          teamId,
+          prototypeId,
+        );
+        Object.assign(agentConfigs, userAgentConfigs);
+      } catch (error) {
+        baseLogger.warn("Failed to load user subagents", {
+          teamId,
+          prototypeId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+
+      // 3. Load and merge user-defined MCP servers
+      try {
+        const userMcpService = new UserMcpServersService(
+          supabaseClient,
+          baseLogger,
+        );
+        const userMcpConfigs = await userMcpService.getMcpServerConfigs(
+          teamId,
+          prototypeId,
+        );
+        Object.assign(mcpServers, userMcpConfigs);
+      } catch (error) {
+        baseLogger.warn("Failed to load user MCP servers", {
+          teamId,
+          prototypeId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     const agents = Object.keys(agentConfigs).length > 0
       ? agentConfigs
       : undefined;
 
     // Build allowed tools list, adding supabase wildcard if MCP server is configured
     const baseAllowedTools = options?.allowedTools ?? allowedToolsDefault;
-    const resolvedAllowedTools = mcpServers["supabase"]
+    let resolvedAllowedTools = mcpServers["supabase"]
       ? [...baseAllowedTools, "mcp__supabase__*"]
-      : baseAllowedTools;
+      : [...baseAllowedTools];
+
+    // Add wildcards for user-defined MCP servers
+    for (const serverKey of Object.keys(mcpServers)) {
+      if (serverKey.startsWith("user_")) {
+        resolvedAllowedTools.push(`mcp__${serverKey}__*`);
+      }
+    }
 
     baseLogger.consoleLogDevOnly("info", "Chat MCP configuration", {
       mcpServerNames: Object.keys(mcpServers),

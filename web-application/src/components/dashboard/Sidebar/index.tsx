@@ -22,7 +22,7 @@ import { cn } from "@/lib/classNames";
 import { handleCheckout } from "@/lib/utils/payments/CheckoutUtils";
 import { IsUserPlanSubscribed } from "@/lib/utils/payments/SubscriptionManagementUtils";
 import { useAtom } from "jotai";
-import { Atom, Palette, Rocket, Sparkles, SquareStack, Zap } from "lucide-react";
+import { Atom, Palette, Rocket, Sliders, Sparkles, SquareStack, Zap } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useProductLogger } from "@/lib/loggers/ClientProductLogger";
@@ -163,6 +163,12 @@ const DashboardSidebarContent = () => {
           },
         ]
       : []),
+    {
+      href: "/dashboard/customizations",
+      icon: Sliders,
+      label: "Customizations",
+      active: pathname?.includes("customizations"),
+    },
     ...(SHOW_WHITEBOARDS
       ? [
           {
