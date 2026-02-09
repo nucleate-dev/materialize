@@ -18,7 +18,7 @@ export async function isEligibleForPersonalClaudeSubscription({
   logger,
 }: PersonalSubscriptionEligibilityParams): Promise<boolean> {
   const plan = await fetchUserPlan(supabase, userId, logger, teamId);
-  if (plan === "plus") {
+  if (plan === "plus" || plan === "team") {
     return true;
   } else {
     return team_allowlist_attach_personal_claude_subscriptions.has(teamId);
