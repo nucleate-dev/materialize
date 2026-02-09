@@ -116,14 +116,19 @@ export async function handleAllocateImpl(
 
   // 3b. CHECK FOR USER OAUTH TOKEN AND SET UP AUTH ENVIRONMENT
   let claudePersonalEligible = false;
+  let userPlan = "free";
+  let hasPersonalOAuthToken = false;
   if (prototypeTeamId) {
     try {
-      claudePersonalEligible = await isEligibleForPersonalClaudeSubscription({
-        supabase: supabaseClient,
-        userId: user_details.userId,
-        teamId: prototypeTeamId,
-        logger: request.log2,
-      });
+      const eligibilityResult =
+        await isEligibleForPersonalClaudeSubscription({
+          supabase: supabaseClient,
+          userId: user_details.userId,
+          teamId: prototypeTeamId,
+          logger: request.log2,
+        });
+      claudePersonalEligible = eligibilityResult.eligible;
+      userPlan = eligibilityResult.plan;
     } catch (error) {
       request.log2.error(
         error instanceof Error ? error : new Error(String(error)),
@@ -152,6 +157,8 @@ export async function handleAllocateImpl(
           },
         );
       } else if (tokenData?.oauth_token) {
+        hasPersonalOAuthToken = true;
+
         // Set up environment for Claude SDK OAuth authentication
         process.env.CLAUDE_CODE_OAUTH_TOKEN = tokenData.oauth_token;
         delete process.env.ANTHROPIC_API_KEY;
@@ -168,7 +175,7 @@ export async function handleAllocateImpl(
       } else {
         request.log2.consoleLogDevOnly(
           "info",
-          "No OAuth token found for user, using platform API key",
+          "No OAuth token found for user, using platform credential",
           { userId: user_details.userId },
         );
       }
@@ -178,7 +185,7 @@ export async function handleAllocateImpl(
         "Error setting up OAuth token authentication",
         { userId: user_details.userId },
       );
-      // Continue with platform API key - don't fail allocation
+      // Continue with platform credential - don't fail allocation
     }
   } else {
     request.log2.consoleLogDevOnly(
@@ -189,6 +196,18 @@ export async function handleAllocateImpl(
         teamId: prototypeTeamId,
       },
     );
+  }
+
+  // 3c. PLAN-BASED ENVIRONMENT CLEANUP:
+  // Free tier: never use ANTHROPIC_API_KEY; use platform CLAUDE_CODE_OAUTH_TOKEN instead
+  // Paid tier without personal token: remove platform CLAUDE_CODE_OAUTH_TOKEN to avoid unintended usage
+  if (userPlan === "free") {
+    delete process.env.ANTHROPIC_API_KEY;
+  } else if (
+    (userPlan === "team" || userPlan === "plus") &&
+    !hasPersonalOAuthToken
+  ) {
+    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
   }
 
   // 4 PROTOTYPE FRAMEWORK INITIALIZATION:
@@ -274,6 +293,9 @@ export async function handleAllocateImpl(
       materializeDevelopmentServerService.chatService.setAak(keys.aak);
     } else {
       request.log2.warn("No aak provided during allocation");
+    }
+    if (userPlan === "free") {
+      materializeDevelopmentServerService.chatService.setFreeTierMode(true);
     }
 
     // 8. SET ORCHESTRATION TOKEN IN SandboxOrchestrationInitiatorService:

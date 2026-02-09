@@ -85,6 +85,7 @@ export class ChatService {
   private aak: string | null = null;
   private userOAuthToken: string | null = null; // User's Claude subscription OAuth token
   private isOAuthModeActive = false;
+  private isFreeTierMode = false; // Free tier uses platform OAuth token instead of API key
   private validAiChatSessionIds = new Set<string>(); // Track valid session IDs created during this CodeService instance's lifetime
   private hasAttemptedTitleGeneration = false; // Prevent multiple title generation attempts
 
@@ -121,6 +122,15 @@ export class ChatService {
   public setAak(key: string): void {
     this.aak = key;
     // baseLogger.consoleLogDevOnly("info", "Anthropic API key set");
+  }
+
+  /**
+   * Set free tier mode. In free tier mode, the platform credential stored in `aak`
+   * is an OAuth token (not an API key), so auth switching sets CLAUDE_CODE_OAUTH_TOKEN
+   * instead of ANTHROPIC_API_KEY when in "nucleate" mode.
+   */
+  public setFreeTierMode(isFreeTier: boolean): void {
+    this.isFreeTierMode = isFreeTier;
   }
 
   /**
@@ -333,6 +343,7 @@ export class ChatService {
     this.activeConnections.clear();
     this.validAiChatSessionIds.clear(); // Clear valid session IDs on shutdown
     this.userOAuthToken = null; // Clear OAuth token on shutdown
+    this.isFreeTierMode = false; // Reset free tier mode on shutdown
     this.hasAttemptedTitleGeneration = false; // Reset title generation flag
     this.sessionState = {
       sessionId: null,
@@ -779,7 +790,7 @@ export class ChatService {
         return;
       }
 
-      const eligible = await isEligibleForPersonalClaudeSubscription({
+      const { eligible } = await isEligibleForPersonalClaudeSubscription({
         supabase: this.supabaseClientService.getClient(),
         userId,
         teamId,
@@ -952,13 +963,20 @@ export class ChatService {
 
     if (!this.aak) {
       logger.warn(
-        "Cannot switch to Nucleate credits - Anthropic key unavailable",
+        "Cannot switch to Nucleate credits - platform credential unavailable",
       );
       return false;
     }
 
-    process.env.ANTHROPIC_API_KEY = this.aak;
-    delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    if (this.isFreeTierMode) {
+      // Free tier: platform credential is an OAuth token
+      process.env.CLAUDE_CODE_OAUTH_TOKEN = this.aak;
+      delete process.env.ANTHROPIC_API_KEY;
+    } else {
+      // Paid tier: platform credential is an API key
+      process.env.ANTHROPIC_API_KEY = this.aak;
+      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    }
     return true;
   }
 

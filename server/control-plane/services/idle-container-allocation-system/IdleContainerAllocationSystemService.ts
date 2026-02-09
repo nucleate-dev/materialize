@@ -30,6 +30,7 @@ import {
 } from "../../types/InternalTypes.js";
 import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
+import { getSubscriptionInfo } from "../../utils/subscriptionChecks.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
@@ -714,6 +715,33 @@ export class IdleContainerAllocationSystemService {
       );
     }
 
+    // Determine user plan to decide which platform credential to pass
+    let platformCredential = process.env.ANTHROPIC_API_KEY;
+    try {
+      const { data: prototypeRow } = await this.supabaseServiceRoleClient
+        .from("prototypes")
+        .select("team_id")
+        .eq("id", prototypeId)
+        .single();
+      if (prototypeRow?.team_id) {
+        const subscriptionInfo = await getSubscriptionInfo(
+          jwt,
+          userId,
+          this.log2,
+          prototypeRow.team_id,
+        );
+        if (subscriptionInfo.userPlan === "free") {
+          platformCredential = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+        }
+      }
+    } catch (error) {
+      this.log2.error(
+        error,
+        "Failed to determine user plan for credential selection, falling back to API key",
+        { prototypeId, userId },
+      );
+    }
+
     const creds: PublicAllocateRequest = {
       s3_credentials: {
         accessKeyId: out.Credentials.AccessKeyId!,
@@ -731,7 +759,7 @@ export class IdleContainerAllocationSystemService {
       },
       keys: {
         orchestration_token: orchestrationToken,
-        aak: process.env.ANTHROPIC_API_KEY,
+        aak: platformCredential,
       },
     };
 

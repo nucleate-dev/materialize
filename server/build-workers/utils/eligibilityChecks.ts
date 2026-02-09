@@ -16,11 +16,18 @@ export async function isEligibleForPersonalClaudeSubscription({
   userId,
   teamId,
   logger,
-}: PersonalSubscriptionEligibilityParams): Promise<boolean> {
+}: PersonalSubscriptionEligibilityParams): Promise<{
+  eligible: boolean;
+  plan: string;
+}> {
   const plan = await fetchUserPlan(supabase, userId, logger, teamId);
   if (plan === "plus" || plan === "team") {
-    return true;
+    return { eligible: true, plan };
   } else {
-    return team_allowlist_attach_personal_claude_subscriptions.has(teamId);
+    return {
+      eligible:
+        team_allowlist_attach_personal_claude_subscriptions.has(teamId),
+      plan,
+    };
   }
 }
