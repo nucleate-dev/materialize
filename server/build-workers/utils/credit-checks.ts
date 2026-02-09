@@ -1,8 +1,9 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 import { SystemLogger } from "../loggers/SystemLogger.js";
 import type { Database } from "../types/supabase.js";
+import { CreditLimits } from "../types/ControlPlaneTypes.js";
 
-const FREE_TIER_CREDITS = 15;
+const FREE_TIER_CREDITS = CreditLimits.FREE; // Free tier users get 5 credits per billing period
 
 /**
  * Helper function to get the start and end of the current month
