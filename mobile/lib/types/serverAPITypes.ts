@@ -33,7 +33,7 @@ export interface StandardErrorResponse {
 
 // Credit limits
 export const CreditLimits = Object.freeze({
-  FREE: 15,
+  FREE: 5,
   PLUS: 30,
   TEAM: 35,
   PRO: 250,
