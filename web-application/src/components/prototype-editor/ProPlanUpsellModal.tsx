@@ -46,7 +46,7 @@ export default function ProPlanUpsellModal({
     return {
       tier: "plus",
       name: "Plus",
-      price: "$25/month",
+      price: "$9.99/month",
     };
   };
 

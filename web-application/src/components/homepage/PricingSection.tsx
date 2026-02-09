@@ -37,7 +37,7 @@ export default function PricingSection() {
       description: "For trying out Nucleate",
       features: [
         "5 free projects",
-        "15 free messages",
+        "5 free credits per month",
         "Fork projects for free",
       ],
       cta: "Get Started",
@@ -46,12 +46,13 @@ export default function PricingSection() {
     },
     {
       name: "Plus",
-      price: "$25",
+      price: "$9.99",
       period: "per month",
       description: "For individuals",
       features: [
         "Everything in Free",
-        "100 credits included",
+        "30 credits included",
+        "Connect your own Claude Code",
         "Unlimited projects",
         "Export code",
         "1 free collaborator",
@@ -62,11 +63,13 @@ export default function PricingSection() {
     },
     {
       name: "Teams",
-      price: "$35",
+      price: "$12.99",
       period: "per seat/month",
       description: "For growing teams",
       features: [
         "Everything in Plus",
+        "35 credits per seat",
+        "Connect your own Claude Code",
         ...(ENABLE_DESIGN_SYSTEM ? ["Shared design systems"] : []),
         "Live collaboration",
         "Internal tools",
@@ -195,7 +198,7 @@ export default function PricingSection() {
                 <p className="text-muted-foreground text-sm leading-relaxed">
                   Already have a Claude Code subscription? Connect it to
                   Nucleate for massive savings.{" "}
-                  <span className="text-[#D97757]">Available on Plus.</span>
+                  <span className="text-[#D97757]">Available on Plus and Teams.</span>
                 </p>
               </div>
             </div>

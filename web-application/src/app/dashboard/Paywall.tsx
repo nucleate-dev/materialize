@@ -31,7 +31,7 @@ function Paywall() {
       period: "/month",
       description: "Perfect for getting started with prototyping",
       features: [
-        "10 messages per month",
+        "5 credits per month",
         "Basic React Native components",
         "Infinite canvas access",
         "Code export",

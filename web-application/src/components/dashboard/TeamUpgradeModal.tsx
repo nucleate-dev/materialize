@@ -21,7 +21,7 @@ interface TeamUpgradeModalProps {
   onConfirm: (seatQuantity: number) => Promise<void>;
 }
 
-const PRICE_PER_SEAT = 35;
+const PRICE_PER_SEAT = 12.99;
 const CREDITS_PER_SEAT = CreditLimits.TEAM;
 const MIN_SEATS = 1;
 

@@ -113,12 +113,13 @@ export default function CreateTeamPage() {
   const pricingPlans = [
     {
       name: "Plus",
-      price: "$25",
+      price: "$9.99",
       period: "per month",
       description: "For everyone",
       features: [
         "Everything in Free",
-        "100 credits a month included",
+        "30 credits a month included",
+        "Connect your own Claude Code",
         "Additional credit packs available",
         "Unlimited projects",
         "Unlimited folders",
@@ -128,11 +129,13 @@ export default function CreateTeamPage() {
     },
     {
       name: "Team",
-      price: "$35",
+      price: "$12.99",
       period: "per seat/month",
       description: "For teams",
       features: [
         "Everything in Plus",
+        "35 credits per seat",
+        "Connect your own Claude Code",
         "Unlimited viewers",
         "Multiple collaborators",
         "Team workspace",
