@@ -547,6 +547,10 @@ export class IdleContainerAllocationSystemService {
                 value: process.env.ANTHROPIC_API_KEY!,
               },
               {
+                name: "CLAUDE_CODE_OAUTH_TOKEN",
+                value: process.env.CLAUDE_CODE_OAUTH_TOKEN!,
+              },
+              {
                 name: "POSTHOG_KEY",
                 value: process.env.POSTHOG_KEY!,
               },
