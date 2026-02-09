@@ -16,7 +16,7 @@ interface ClaudePersonalSubscriptionAccessResult {
  * Determines whether the user can connect their personal Claude subscription and
  * whether a valid OAuth token already exists for them.
  *
- * The flow is available only for free or plus plans. When eligible, this hook
+ * The flow is available for free, plus, or team plans. When eligible, this hook
  * also checks if a row exists in the `user_claude_tokens` table for the user.
  */
 export function useClaudePersonalSubscriptionAccess(): ClaudePersonalSubscriptionAccessResult {
@@ -29,7 +29,8 @@ export function useClaudePersonalSubscriptionAccess(): ClaudePersonalSubscriptio
   const allowlistedTeam =
     teamId != null &&
     team_allowlist_attach_personal_claude_subscriptions.has(teamId);
-  const isEligiblePlan = userPlan === "free" || userPlan === "plus";
+  const isEligiblePlan =
+    userPlan === "free" || userPlan === "plus" || userPlan === "team";
   const isEligible = isEligiblePlan || allowlistedTeam;
   const tokenQueryEnabled = Boolean(userId && isEligible);
 
