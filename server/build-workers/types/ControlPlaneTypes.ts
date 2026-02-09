@@ -5,7 +5,7 @@
 // To update these shared files, modify the source file and run:
 // npm run sync-types (in the control-plane directory)
 //
-// Last synced: 2026-02-01T20:54:43.872Z
+// Last synced: 2026-02-09T22:42:58.266Z
 
 // Public API types for the Control Plane Server
 // These types define the request and response schemas for all public endpoints
@@ -755,6 +755,70 @@ export interface SupabaseCreateProjectRequestBody {
 
 export interface SupabaseCreateProjectSuccessResponse {
   project: SupabaseProjectSummary;
+}
+
+// ============================================================================
+// CONVEX CONNECTOR ENDPOINTS
+// ============================================================================
+
+// POST /connectors/convex/connect/start
+export interface ConvexConnectStartRequestBody {
+  teamId: string;
+}
+
+export interface ConvexConnectStartSuccessResponse {
+  authorizationUrl: string;
+}
+
+// GET /connectors/convex/integrations
+export interface ConvexIntegrationsQuery {
+  teamId: string;
+}
+
+export interface ConvexIntegrationSummary {
+  id: string;
+  convex_team_id: string;
+  convex_team_name: string | null;
+  connected_at: string;
+  status: ConnectorStatus;
+}
+
+export interface ConvexIntegrationsSuccessResponse {
+  integrations: ConvexIntegrationSummary[];
+}
+
+// GET /connectors/convex/projects
+export interface ConvexProjectsQuery {
+  teamId: string;
+}
+
+export interface ConvexProjectSummary {
+  id: string;
+  name: string;
+  slug: string;
+  team_id: string;
+  create_time: number;
+}
+
+export interface ConvexProjectsSuccessResponse {
+  projects: ConvexProjectSummary[];
+}
+
+// POST /connectors/convex/create-project
+export interface ConvexCreateProjectRequestBody {
+  teamId: string;
+  convexTeamId: string;
+  name: string;
+  deploymentType?: "dev" | "prod";
+  deploymentRegion?: string;
+  deploymentClass?: string;
+}
+
+export interface ConvexCreateProjectSuccessResponse {
+  project: ConvexProjectSummary & {
+    deployment_name: string;
+    deployment_url: string;
+  };
 }
 
 // ============================================================================
