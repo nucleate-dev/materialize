@@ -21,6 +21,7 @@ import { DevelopmentServerService } from "./services/DevelopmentServerService.js
 import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { GitHubIntegrationService } from "./services/connectors/github/GitHubIntegrationService.js";
 import { SupabaseIntegrationService } from "./services/connectors/supabase/SupabaseIntegrationService.js";
+import { ConvexIntegrationService } from "./services/connectors/convex/ConvexIntegrationService.js";
 import { IdleContainerAllocationSystemService } from "./services/idle-container-allocation-system/IdleContainerAllocationSystemService.js";
 import { LLMService } from "./services/llm/LLMService.js";
 import { OrchestrationService } from "./services/orchestration/OrchestrationService.js";
@@ -171,6 +172,7 @@ let developmentServerService: DevelopmentServerService;
 let orchestrationService: OrchestrationService;
 let githubIntegrationService: GitHubIntegrationService;
 let supabaseIntegrationService: SupabaseIntegrationService;
+let convexIntegrationService: ConvexIntegrationService;
 let internalToolsService: InternalCacheManagementService;
 let internalDevServerManagementService: InternalControlPlaneDevelopmentService;
 let internalProductionDeploymentService: InternalProductionDeploymentService;
@@ -281,6 +283,10 @@ const start = async (): Promise<void> => {
     // Create Supabase integration service and register routes
     supabaseIntegrationService = new SupabaseIntegrationService();
     supabaseIntegrationService.registerRoutes(fastify);
+
+    // Create Convex integration service and register routes
+    convexIntegrationService = new ConvexIntegrationService();
+    convexIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
     internalToolsService = new InternalCacheManagementService(cacheClient);

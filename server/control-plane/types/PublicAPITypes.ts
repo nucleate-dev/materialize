@@ -749,6 +749,70 @@ export interface SupabaseCreateProjectSuccessResponse {
 }
 
 // ============================================================================
+// CONVEX CONNECTOR ENDPOINTS
+// ============================================================================
+
+// POST /connectors/convex/connect/start
+export interface ConvexConnectStartRequestBody {
+  teamId: string;
+}
+
+export interface ConvexConnectStartSuccessResponse {
+  authorizationUrl: string;
+}
+
+// GET /connectors/convex/integrations
+export interface ConvexIntegrationsQuery {
+  teamId: string;
+}
+
+export interface ConvexIntegrationSummary {
+  id: string;
+  convex_team_id: string;
+  convex_team_name: string | null;
+  connected_at: string;
+  status: ConnectorStatus;
+}
+
+export interface ConvexIntegrationsSuccessResponse {
+  integrations: ConvexIntegrationSummary[];
+}
+
+// GET /connectors/convex/projects
+export interface ConvexProjectsQuery {
+  teamId: string;
+}
+
+export interface ConvexProjectSummary {
+  id: string;
+  name: string;
+  slug: string;
+  team_id: string;
+  create_time: number;
+}
+
+export interface ConvexProjectsSuccessResponse {
+  projects: ConvexProjectSummary[];
+}
+
+// POST /connectors/convex/create-project
+export interface ConvexCreateProjectRequestBody {
+  teamId: string;
+  convexTeamId: string;
+  name: string;
+  deploymentType?: "dev" | "prod";
+  deploymentRegion?: string;
+  deploymentClass?: string;
+}
+
+export interface ConvexCreateProjectSuccessResponse {
+  project: ConvexProjectSummary & {
+    deployment_name: string;
+    deployment_url: string;
+  };
+}
+
+// ============================================================================
 // TYPE GUARDS
 // ============================================================================
 
