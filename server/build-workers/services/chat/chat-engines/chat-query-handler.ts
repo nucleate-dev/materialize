@@ -796,7 +796,7 @@ export class ChatQueryHandler implements ChatEngine {
       maxTurns: options?.maxTurns ?? 50,
       disallowedTools: ["Write", "Bash"],
       allowedTools: resolvedAllowedTools,
-      // model: options?.model ?? "claude-sonnet-4-5",
+      model: options?.model ?? "claude-sonnet-4-5",
       systemPrompt: {
         type: "preset" as const,
         preset: "claude_code" as const,

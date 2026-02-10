@@ -80,6 +80,7 @@ interface ClaudeCodePanelUIProps {
   modelProvider: "claude" | "vercel";
   model: string;
   vercelModels: Array<{ value: string; label: string; }>;
+  claudeModels: Array<{ value: string; label: string; }>;
   onModelProviderChange: (value: "claude" | "vercel") => void;
   onModelChange: (value: string) => void;
   messages: Message[];
@@ -176,8 +177,11 @@ export default function ClaudeCodePanelUI({
   isConnected,
   isProcessing,
   normalizedTunnelUrl,
-  // baseTunnelUrl, currentRenderStatus, modelProvider, model, vercelModels,
-  // onModelProviderChange, onModelChange are available via props if needed
+  modelProvider,
+  model,
+  claudeModels,
+  onModelChange,
+  // baseTunnelUrl, currentRenderStatus, vercelModels, onModelProviderChange are available via props if needed
   messages,
   expandedThinking,
   currentTodos,
@@ -1064,6 +1068,30 @@ export default function ClaudeCodePanelUI({
                         >
                           Your Claude Sub
                         </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {/* Claude Model Selector */}
+                  {modelProvider === "claude" && (
+                    <Select
+                      value={model}
+                      onValueChange={onModelChange}
+                      disabled={isProcessing || !isCurrentSessionMostRecent}
+                    >
+                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-background border-border">
+                        {claudeModels.map((modelOption) => (
+                          <SelectItem
+                            key={modelOption.value}
+                            value={modelOption.value}
+                            className="text-xs"
+                          >
+                            {modelOption.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   )}
