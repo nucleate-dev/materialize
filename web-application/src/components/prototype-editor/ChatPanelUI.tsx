@@ -141,6 +141,7 @@ interface ClaudeCodePanelUIProps {
   onPrototypeNameClick?: () => void;
   onAskUserQuestionSubmit: (toolCallId: string, answers: Record<string, string>) => void;
   onAskUserQuestionCancel: (toolCallId: string) => void;
+  onDeleteQueuedMessage?: (queueId: string) => void;
 }
 
 function CopyMessageButton({ content }: { content: string; }) {
@@ -232,6 +233,7 @@ export default function ClaudeCodePanelUI({
   onPrototypeNameClick,
   onAskUserQuestionSubmit,
   onAskUserQuestionCancel,
+  onDeleteQueuedMessage,
 }: ClaudeCodePanelUIProps) {
   const [showCreditLimitModal, setShowCreditLimitModal] = useState(false);
   const hasShownModalRef = useRef(false);
@@ -544,9 +546,23 @@ export default function ClaudeCodePanelUI({
                               )}
                             >
                               {message.isQueued && (
-                                <div className="flex items-center gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-warning/30">
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                  <span>Queued - waiting for connection</span>
+                                <div className="flex items-center justify-between gap-2 mb-2 text-xs font-medium opacity-80 pb-2 border-b border-warning/30">
+                                  <div className="flex items-center gap-2">
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                    <span>Queued - waiting...</span>
+                                  </div>
+                                  {message.queueId && onDeleteQueuedMessage && (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteQueuedMessage(message.queueId!);
+                                      }}
+                                      className="text-muted-foreground hover:text-destructive transition-colors p-1 -m-1"
+                                      title="Remove from queue"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                               <pre className="whitespace-pre-wrap break-words font-sans">
@@ -1008,7 +1024,7 @@ export default function ClaudeCodePanelUI({
                     ? "Session is read-only"
                     : "Ask Nucleate to edit code..."
                 }
-                disabled={isProcessing || !isCurrentSessionMostRecent}
+                disabled={!isCurrentSessionMostRecent}
                 className="w-full min-h-[40px] max-h-32 bg-transparent border-0 focus-visible:ring-0 px-1 py-1 text-sm resize-none placeholder:text-muted-foreground text-foreground"
                 rows={1}
               />
@@ -1024,7 +1040,7 @@ export default function ClaudeCodePanelUI({
                           size="icon"
                           variant="ghost"
                           onClick={() => fileInputRef.current?.click()}
-                          disabled={isProcessing || !isCurrentSessionMostRecent}
+                          disabled={!isCurrentSessionMostRecent}
                           className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent"
                         >
                           <Paperclip className="w-4 h-4" />
