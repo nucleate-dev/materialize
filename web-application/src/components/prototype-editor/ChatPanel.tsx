@@ -139,6 +139,7 @@ export interface Message {
   description?: string;
   toolHistory?: ToolInput[]; // For ephemeral tools, track all invocations
   isQueued?: boolean; // For queued messages waiting for dev server
+  queueId?: string; // Links message bubble to queue item for deletion
   imageUrls?: string[]; // Signed URLs for historical images
   creditsUsed?: number; // For usage messages
   designSpec?: string; // For design_spec messages - the full specification
@@ -159,6 +160,14 @@ export interface UploadedImage {
   base64: string;
   mediaType: string;
   name: string;
+}
+
+export interface QueuedItem {
+  id: string;
+  content: string;
+  images: UploadedImage[];
+  timestamp: number;
+  timeoutRef: NodeJS.Timeout | null;
 }
 
 export interface ClaudeCodePanelRef {
@@ -262,13 +271,11 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     );
     const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([]);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
-    const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
-    const [queuedImages, setQueuedImages] = useState<UploadedImage[]>([]);
+    const [messageQueue, setMessageQueue] = useState<QueuedItem[]>([]);
     // State for programmatic messages (from AI actions)
     const [pendingProgrammaticMessage, setPendingProgrammaticMessage] =
       useState<{ message: string; imageDataUrl?: string; } | null>(null);
     const hasProcessedChatIntent = useRef(false);
-    const queueTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
     const [isNearBottom, setIsNearBottom] = useState(true);
     const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -1040,44 +1047,22 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           hasImages: Boolean(chatIntent.images?.length),
         });
 
-        // Set queued message state
-        setQueuedMessage(chatIntent.message);
+        const queueId = `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const images = chatIntent.images ?? [];
 
-        // Set queued images if present
-        if (chatIntent.images && chatIntent.images.length > 0) {
-          setQueuedImages(chatIntent.images);
-        }
-
-        // Add queued message to UI
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `queued-${Date.now()}`,
-            type: "user",
-            content: chatIntent.message,
-            timestamp: Date.now(),
-            isQueued: true,
-            imageUrls: chatIntent.images?.map(
-              (img) => `data:${img.mediaType};base64,${img.base64}`,
-            ),
-            user: currentUserInfo,
-          },
-        ]);
-
-        // Set timeout for queued message (2 minutes)
-        queueTimeoutRef.current = setTimeout(() => {
+        // Set timeout for this queue item
+        const timeoutRef = setTimeout(() => {
           logger.debug(
             "error",
             "Queued message timeout - dev server took too long",
-            {
-              message: chatIntent.message,
-            },
+            { message: chatIntent.message },
           );
 
-          // Update queued message to show error
+          // Remove from queue and update message bubble
+          setMessageQueue((prev) => prev.filter((item) => item.id !== queueId));
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.isQueued ? { ...msg, isQueued: false } : msg,
+              msg.queueId === queueId ? { ...msg, isQueued: false } : msg,
             ),
           );
 
@@ -1086,141 +1071,175 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             "Dev server took too long to start. Please try sending your message again.",
           );
 
-          setQueuedMessage(null);
           clearChatIntent();
         }, 120000); // 2 minutes
 
+        // Add to queue
+        setMessageQueue((prev) => [
+          ...prev,
+          {
+            id: queueId,
+            content: chatIntent.message,
+            images,
+            timestamp: Date.now(),
+            timeoutRef,
+          },
+        ]);
+
+        // Add queued message to UI
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: queueId,
+            type: "user",
+            content: chatIntent.message,
+            timestamp: Date.now(),
+            isQueued: true,
+            queueId,
+            imageUrls: images.map(
+              (img) => `data:${img.mediaType};base64,${img.base64}`,
+            ),
+            user: currentUserInfo,
+          },
+        ]);
+
         hasProcessedChatIntent.current = true;
       }
-
-      // Cleanup timeout on unmount
-      return () => {
-        if (queueTimeoutRef.current) {
-          clearTimeout(queueTimeoutRef.current);
-        }
-      };
     }, [prototypeId, logger]);
 
-    // Auto-send queued message when dev server becomes connected
+    // Helper function to send a queued message
+    const sendQueuedMessage = useCallback(
+      async (item: QueuedItem) => {
+        setIsProcessing(true);
+        clearChatIntent();
+
+        // Refresh JWT token before sending
+        try {
+          const { data: session } = await supabase.auth.getSession();
+          if (session.session?.access_token) {
+            authTokenRef.current = session.session.access_token;
+          }
+        } catch (error) {
+          logger.debug("warn", "Failed to refresh token for queued message", {
+            error,
+          });
+        }
+
+        if (ws) {
+          // Build message content with text and any queued images
+          const messageContent: Array<
+            | { type: "text"; text: string }
+            | {
+                type: "image";
+                source: { type: "base64"; media_type: string; data: string };
+              }
+          > = [{ type: "text", text: item.content }];
+
+          for (const image of item.images) {
+            messageContent.push({
+              type: "image",
+              source: {
+                type: "base64",
+                media_type: image.mediaType,
+                data: image.base64,
+              },
+            });
+          }
+
+          ws.send(
+            JSON.stringify({
+              type: "query",
+              data: {
+                content: messageContent,
+                token: authTokenRef.current,
+                options: {
+                  provider: modelProvider,
+                  model: model,
+                },
+                ai_chat_session_id: isCorruptedSession
+                  ? null
+                  : sessionIdRef.current,
+                prototype_chat_session_id: prototypeChatSessionId,
+                custom_design_system_id: prototype?.custom_design_system,
+                current_viewing_path: currentViewingPath,
+                visible_screens: visibleScreens,
+                preview_mode: previewMode,
+                layout_mode: layoutMode,
+                screen_order: screenOrder,
+                focused_screen_id: focusedScreenId,
+                design_style: prototype?.design_style,
+                use_oauth_token: authMode === "claude_sub",
+                user_id: currentUserInfo?.id ?? null,
+              },
+            }),
+          );
+        }
+      },
+      [
+        ws,
+        logger,
+        prototypeChatSessionId,
+        visibleScreens,
+        previewMode,
+        prototype,
+        currentViewingPath,
+        isCorruptedSession,
+        model,
+        modelProvider,
+        authMode,
+        currentUserInfo,
+        layoutMode,
+        screenOrder,
+        focusedScreenId,
+      ],
+    );
+
+    // Process queue when conditions are met (not processing, connected, ready, queue has items)
     useEffect(() => {
       const isDevServerReady =
         currentRenderStatus === "Connected" ||
         currentRenderStatus === "Connecting..";
 
-      if (queuedMessage && isDevServerReady && isConnected && !isProcessing) {
-        (async () => {
-          logger.debug("log", "Dev server ready, auto-sending queued message", {
-            message: queuedMessage,
-            currentRenderStatus,
-          });
+      if (
+        !isProcessing &&
+        isConnected &&
+        isDevServerReady &&
+        messageQueue.length > 0
+      ) {
+        // Process first item in queue (FIFO)
+        const nextItem = messageQueue[0];
 
-          // Clear the timeout since we're sending the message now
-          if (queueTimeoutRef.current) {
-            clearTimeout(queueTimeoutRef.current);
-            queueTimeoutRef.current = null;
-          }
+        logger.debug("log", "Processing next queued message", {
+          queueId: nextItem.id,
+          content: nextItem.content,
+          queueLength: messageQueue.length,
+        });
 
-          // Update the queued message to show it's being sent
-          setMessages((prev) =>
-            prev.map((msg) =>
-              msg.isQueued ? { ...msg, isQueued: false } : msg,
-            ),
-          );
+        // Clear this item's timeout
+        if (nextItem.timeoutRef) {
+          clearTimeout(nextItem.timeoutRef);
+        }
 
-          // Send the message
-          const content = queuedMessage;
-          const imagesToSend = queuedImages.length > 0 ? queuedImages : [];
-          setQueuedMessage(null);
-          setQueuedImages([]);
-          setIsProcessing(true);
-          // Clear chat intent from localStorage
-          clearChatIntent();
+        // Update message bubble to show it's being sent
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.queueId === nextItem.id ? { ...msg, isQueued: false } : msg,
+          ),
+        );
 
-          // Refresh JWT token before sending queued message
-          try {
-            const { data: session } = await supabase.auth.getSession();
-            if (session.session?.access_token) {
-              authTokenRef.current = session.session.access_token;
-            }
-          } catch (error) {
-            logger.debug("warn", "Failed to refresh token for queued message", {
-              error,
-            });
-            // Continue with existing token if refresh fails
-          }
+        // Remove from queue
+        setMessageQueue((prev) => prev.slice(1));
 
-          // Send message via WebSocket
-          if (ws) {
-            // Build message content with text and any queued images
-            const messageContent: Array<
-              | { type: "text"; text: string; }
-              | {
-                type: "image";
-                source: { type: "base64"; media_type: string; data: string; };
-              }
-            > = [{ type: "text", text: content }];
-
-            // Add queued images to message content
-            for (const image of imagesToSend) {
-              messageContent.push({
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: image.mediaType,
-                  data: image.base64,
-                },
-              });
-            }
-
-            ws.send(
-              JSON.stringify({
-                type: "query",
-                data: {
-                  content: messageContent,
-                  token: authTokenRef.current,
-                  options: {
-                    provider: modelProvider,
-                    model: model,
-                  },
-                  // Force new session if corrupted, otherwise use existing session
-                  ai_chat_session_id: isCorruptedSession
-                    ? null
-                    : sessionIdRef.current,
-                  prototype_chat_session_id: prototypeChatSessionId,
-                  custom_design_system_id: prototype?.custom_design_system,
-                  current_viewing_path: currentViewingPath,
-                  visible_screens: visibleScreens,
-                  preview_mode: previewMode,
-                  layout_mode: layoutMode,
-                  screen_order: screenOrder,
-                  focused_screen_id: focusedScreenId,
-                  design_style: prototype?.design_style,
-                  use_oauth_token: authMode === "claude_sub",
-                  user_id: currentUserInfo?.id ?? null,
-                },
-              }),
-            );
-          }
-        })();
+        // Send the message
+        sendQueuedMessage(nextItem);
       }
     }, [
-      queuedMessage,
-      queuedImages,
-      currentRenderStatus,
-      isConnected,
       isProcessing,
-      currentUserInfo,
-      ws,
+      isConnected,
+      currentRenderStatus,
+      messageQueue,
+      sendQueuedMessage,
       logger,
-      prototypeChatSessionId,
-      visibleScreens,
-      previewMode,
-      prototype,
-      currentViewingPath,
-      isCorruptedSession,
-      model,
-      modelProvider,
-      authMode,
     ]);
 
     // WebSocket connection is managed by parent component (InternalPrototypePage)
@@ -1314,6 +1333,17 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     useEffect(() => {
       messagesRef.current = messages;
     }, [messages]);
+
+    // Cleanup all queue timeouts on unmount
+    useEffect(() => {
+      return () => {
+        messageQueue.forEach((item) => {
+          if (item.timeoutRef) {
+            clearTimeout(item.timeoutRef);
+          }
+        });
+      };
+    }, [messageQueue]);
 
     // Connection is managed by parent component via external props
     const connect = onConnect;
@@ -2217,15 +2247,10 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         currentRenderStatus === "Connected" ||
         currentRenderStatus === "Connecting..";
 
-      // If already have a queued message, prevent queueing another
-      if (queuedMessage) {
-        addMessage("system", "Please wait for the current message to be sent");
-        return;
-      }
-
-      // If not connected or dev server isn't ready, queue the message
-      if (!isConnected || !isDevServerReady) {
-        setQueuedMessage(trimmedInput);
+      // Queue the message if not connected, dev server isn't ready, or currently processing
+      if (!isConnected || !isDevServerReady || isProcessing) {
+        const queueId = `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const imagesToQueue = [...uploadedImages];
 
         // Add message to chat as queued
         const imageCount = uploadedImages.length;
@@ -2234,34 +2259,19 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
           (imageCount > 0
             ? ` [${imageCount} image${imageCount > 1 ? "s" : ""}]`
             : "");
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `queued-${Date.now()}`,
-            type: "user",
-            content: displayMessage,
-            timestamp: Date.now(),
-            isQueued: true,
-            user: currentUserInfo,
-          },
-        ]);
 
-        setInputValue("");
-        setUploadedImages([]);
-
-        // Set timeout for queued message (2 minutes)
-        if (queueTimeoutRef.current) {
-          clearTimeout(queueTimeoutRef.current);
-        }
-        queueTimeoutRef.current = setTimeout(() => {
+        // Set timeout for this queue item
+        const timeoutRef = setTimeout(() => {
           logger.debug("error", "Queued message timeout", {
+            queueId,
             message: trimmedInput,
           });
 
-          // Update queued message to show error
+          // Remove from queue and update message bubble
+          setMessageQueue((prev) => prev.filter((item) => item.id !== queueId));
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.isQueued ? { ...msg, isQueued: false } : msg,
+              msg.queueId === queueId ? { ...msg, isQueued: false } : msg,
             ),
           );
 
@@ -2269,26 +2279,62 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
             "error",
             "Connection or dev server took too long. Please try sending your message again.",
           );
-
-          setQueuedMessage(null);
         }, 120000); // 2 minutes
 
-        // Show system message about queuing
-        const waitingFor = [];
-        if (!isConnected) waitingFor.push("connection");
-        if (!isDevServerReady) waitingFor.push("dev server");
-        addMessage(
-          "system",
-          `Message queued - waiting for ${waitingFor.join(" and ")}`,
-        );
+        // Add to queue
+        setMessageQueue((prev) => [
+          ...prev,
+          {
+            id: queueId,
+            content: trimmedInput,
+            images: imagesToQueue,
+            timestamp: Date.now(),
+            timeoutRef,
+          },
+        ]);
+
+        // Add message bubble
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: queueId,
+            type: "user",
+            content: displayMessage,
+            timestamp: Date.now(),
+            isQueued: true,
+            queueId,
+            imageUrls: imagesToQueue.map(
+              (img) => `data:${img.mediaType};base64,${img.base64}`,
+            ),
+            user: currentUserInfo,
+          },
+        ]);
+
+        setInputValue("");
+        setUploadedImages([]);
+
+        // Show system message about queuing (only for first queued message)
+        if (messageQueue.length === 0) {
+          const waitingFor = [];
+          if (!isConnected) waitingFor.push("connection");
+          if (!isDevServerReady) waitingFor.push("dev server");
+          if (isProcessing) waitingFor.push("current request to complete");
+          addMessage(
+            "system",
+            `Message queued - waiting for ${waitingFor.join(" and ")}`,
+          );
+        }
+
         logger.log({
           event: "client_prototype_editor_chat_message_sent",
           properties: {
             prototype_id: prototype?.id,
             ...messageMetrics,
             queued: true,
+            queue_position: messageQueue.length + 1,
             connection_ready: isConnected,
             dev_server_ready: isDevServerReady,
+            is_processing: isProcessing,
           },
         });
 
@@ -2578,6 +2624,26 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
       [ws, logger]
     );
 
+    // Delete a queued message from the queue
+    const deleteQueuedMessage = useCallback(
+      (queueId: string) => {
+        // Find and clear the timeout for this item
+        setMessageQueue((prev) => {
+          const item = prev.find((i) => i.id === queueId);
+          if (item?.timeoutRef) {
+            clearTimeout(item.timeoutRef);
+          }
+          return prev.filter((i) => i.id !== queueId);
+        });
+
+        // Remove the message bubble entirely
+        setMessages((prev) => prev.filter((msg) => msg.queueId !== queueId));
+
+        logger.debug("log", "Deleted queued message", { queueId });
+      },
+      [logger],
+    );
+
     // Switch to a different chat session
     const switchChatSession = async (targetChatSessionId: string) => {
       try {
@@ -2830,6 +2896,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
         onPrototypeNameClick={onPrototypeNameClick}
         onAskUserQuestionSubmit={handleAskUserQuestionSubmit}
         onAskUserQuestionCancel={handleAskUserQuestionCancel}
+        onDeleteQueuedMessage={deleteQueuedMessage}
       />
     );
   },
