@@ -9,6 +9,7 @@ import crypto from 'crypto';
  * ENV VAR required:
  *   - GITHUB_TOKEN_ENCRYPTION_KEY
  *   - SUPABASE_OAUTH_TOKEN_ENCRYPTION_KEY
+ *   - CONVEX_OAUTH_TOKEN_ENCRYPTION_KEY
  *   - Must be 32 bytes (64 hex characters) or base64-encoded 32 bytes
  *   - Generate with: openssl rand -hex 32 or openssl rand -base64 32
  */
@@ -16,7 +17,7 @@ import crypto from 'crypto';
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // 96 bits recommended for GCM
 
-export type EncryptionKeyType = 'github' | 'supabase';
+export type EncryptionKeyType = 'github' | 'supabase' | 'convex';
 
 /**
  * Get the encryption key from environment variable.
@@ -30,6 +31,9 @@ function getEncryptionKey(keyType: EncryptionKeyType): Buffer {
       break;
     case 'supabase':
       envName = 'SUPABASE_OAUTH_TOKEN_ENCRYPTION_KEY';
+      break;
+    case 'convex':
+      envName = 'CONVEX_OAUTH_TOKEN_ENCRYPTION_KEY';
       break;
     default:
       envName = 'GITHUB_TOKEN_ENCRYPTION_KEY';
