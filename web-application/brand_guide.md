@@ -1,7 +1,9 @@
 # Nucleate Brand Guide
 
 > **Brand Personality:** Warm, approachable, creative, professional
+> 
 > **Target Audience:** Designers & Product Managers
+> 
 > **Core Concept:** Growth from a central point — the genesis of ideas  
 
 ---
