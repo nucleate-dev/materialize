@@ -1,6 +1,5 @@
 import { ECSClient, StopTaskCommand } from "@aws-sdk/client-ecs";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
-import { GlideClient } from "@valkey/valkey-glide";
 import axios, { AxiosError } from "axios";
 import { CONFIG } from "../../config.js";
 import { cryptoRandomId, SystemLogger } from "../../loggers/SystemLogger.js";
@@ -12,15 +11,14 @@ import {
 } from "../../types/BuildWorkerTypes.js";
 import {
   type ActiveBuild,
-  CACHE_PATTERNS,
   type CleanupOperationResult,
   type CleanupStats,
   type IdleBuildInfo,
   isActiveBuildType,
 } from "../../types/InternalTypes.js";
 import {
-  activeBuildToStringRecord,
-  hgetallAsActiveBuild,
+  getAllActiveBuilds,
+  updateBuildFields,
   removeBuildDataFromCache,
 } from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
@@ -29,13 +27,11 @@ import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUt
 
 export class CleanupService {
   private cleanupIntervals: ReturnType<typeof setInterval>[];
-  private cache: GlideClient;
   private ecsClient: ECSClient;
   private supabase: SupabaseClient;
   private log2: SystemLogger;
 
-  constructor(cache: GlideClient, ecsClient: ECSClient) {
-    this.cache = cache;
+  constructor(ecsClient: ECSClient) {
     this.ecsClient = ecsClient;
     this.supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -122,9 +118,9 @@ export class CleanupService {
     totalBuildsScanned: number;
     idleBuilds: IdleBuildInfo[];
   }> {
-    const activeBuildKeys = await this.scanKeys(CACHE_PATTERNS.allActiveBuilds);
-    if (!activeBuildKeys || activeBuildKeys.length === 0) {
-      return { totalBuildsScanned: activeBuildKeys.length, idleBuilds: [] };
+    const allBuilds = await getAllActiveBuilds();
+    if (!allBuilds || allBuilds.length === 0) {
+      return { totalBuildsScanned: allBuilds.length, idleBuilds: [] };
     }
 
     const currentTime = Math.floor(Date.now() / 1000);
@@ -132,11 +128,7 @@ export class CleanupService {
 
     // 1. Get all idle builds
     const idleBuilds: IdleBuildInfo[] = [];
-    for (const buildKey of activeBuildKeys) {
-      const build = await hgetallAsActiveBuild(this.cache, buildKey);
-      if (!build) {
-        continue;
-      }
+    for (const { build, buildId, buildKey } of allBuilds) {
       if (!isActiveBuildType(build)) {
         this.log2.warn("Invalid build data found in cache for key", {
           buildKey,
@@ -151,13 +143,11 @@ export class CleanupService {
 
       const timeSinceLastTouch = currentTime - build.last_touched;
       if (timeSinceLastTouch > idleTimeoutSeconds) {
-        // Extract build ID from key: "active_build:build_id" -> "build_id"
-        const buildId = buildKey.replace("active_build:", "");
         idleBuilds.push({ build, buildId, buildKey });
       }
     }
 
-    return { totalBuildsScanned: activeBuildKeys.length, idleBuilds };
+    return { totalBuildsScanned: allBuilds.length, idleBuilds };
   }
 
   private async dispatchKillRequestsAndCleanFargateTasksForIdleBuilds(
@@ -192,15 +182,13 @@ export class CleanupService {
     shouldWaitForSuccessfulBuild: boolean = true, // internal tools sometimes we don't care
   ): Promise<CleanupOperationResult> {
     // 1. Set status to cleaning, so a cleanup service running on another EC2 instance doesn't try to clean up the same build
-    const cleaningBuild: ActiveBuild = {
-      ...build,
-      status: "cleaning",
-    };
-    const cacheUpdateResult = await this.setCacheActiveBuildData(
-      buildKey,
-      cleaningBuild,
-      buildId,
-    );
+    let cacheUpdateResult = true;
+    try {
+      await updateBuildFields(buildId, { status: 'cleaning' });
+    } catch (error) {
+      this.log2.error(error, 'Failed to update cache active build data', { buildId });
+      cacheUpdateResult = false;
+    }
     if (!cacheUpdateResult) {
       return {
         success: false,
@@ -220,7 +208,6 @@ export class CleanupService {
         { buildId },
       );
       const removedFromCache = await removeBuildDataFromCache(
-        this.cache,
         this.log2,
         prototypeId,
         buildId,
@@ -254,11 +241,11 @@ export class CleanupService {
           `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
         );
         // reset status back to stable since we didn't kill the build
-        const activeBuild: ActiveBuild = {
-          ...build,
-          status: "stable",
-        };
-        await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+        try {
+          await updateBuildFields(buildId, { status: 'stable' });
+        } catch (error) {
+          this.log2.error(error, 'Failed to update cache active build data', { buildId });
+        }
         return {
           success: false,
           buildInProgress: false,
@@ -270,7 +257,6 @@ export class CleanupService {
         build.terminal_tunnel_hostname,
       );
       const removedFromCache = await removeBuildDataFromCache(
-        this.cache,
         this.log2,
         prototypeId,
         buildId,
@@ -309,16 +295,16 @@ export class CleanupService {
           );
         } else {
           // Reset the status back to building and increment clean_attempts
-          const activeBuild: ActiveBuild = {
-            ...build,
-            status: "building",
-            clean_attempts: newCleanAttempts,
-          };
-          const setCacheResult = await this.setCacheActiveBuildData(
-            buildKey,
-            activeBuild,
-            buildId,
-          );
+          let setCacheResult = true;
+          try {
+            await updateBuildFields(buildId, {
+              status: 'building',
+              clean_attempts: newCleanAttempts,
+            });
+          } catch (error) {
+            this.log2.error(error, 'Failed to update cache active build data', { buildId });
+            setCacheResult = false;
+          }
           if (!setCacheResult) {
             return {
               success: false,
@@ -351,11 +337,11 @@ export class CleanupService {
         terminateResult.error,
         `Failed to terminate Fargate task for ${buildId}, leaving build as active: ${terminateResult.error}`,
       );
-      const activeBuild: ActiveBuild = {
-        ...build,
-        status: "stable",
-      };
-      await this.setCacheActiveBuildData(buildKey, activeBuild, buildId);
+      try {
+        await updateBuildFields(buildId, { status: 'stable' });
+      } catch (error) {
+        this.log2.error(error, 'Failed to update cache active build data', { buildId });
+      }
       return {
         success: false,
         buildInProgress: false,
@@ -371,7 +357,6 @@ export class CleanupService {
 
     // 6. remove the active build from cache and cleanup schema entries
     const removedFromCache = await removeBuildDataFromCache(
-      this.cache,
       this.log2,
       prototypeId,
       buildId,
@@ -407,22 +392,6 @@ export class CleanupService {
       }
     }
     return false;
-  }
-
-  private async setCacheActiveBuildData(
-    buildKey: string,
-    activeBuild: ActiveBuild,
-    buildId: string,
-  ): Promise<boolean> {
-    try {
-      await this.cache.hset(buildKey, activeBuildToStringRecord(activeBuild));
-      return true;
-    } catch (error) {
-      this.log2.error(error, "Failed to update cache active build data", {
-        buildId,
-      });
-      return false;
-    }
   }
 
   // Dispatch kill hot reload request to build worker
@@ -599,34 +568,5 @@ export class CleanupService {
         buildInProgress: false,
       };
     }
-  }
-
-  // Helper method to scan for keys matching a pattern
-  private async scanKeys(pattern: string): Promise<string[]> {
-    const keys: string[] = [];
-    let cursor = "0";
-
-    do {
-      try {
-        const result = (await this.cache.customCommand([
-          "SCAN",
-          cursor,
-          "MATCH",
-          pattern,
-          "COUNT",
-          "100",
-        ])) as [string, string[]];
-
-        cursor = result[0];
-        keys.push(...result[1]);
-      } catch (error) {
-        this.log2.error(error, "Error scanning keys with pattern", {
-          pattern,
-        });
-        break;
-      }
-    } while (cursor !== "0");
-
-    return keys;
   }
 }

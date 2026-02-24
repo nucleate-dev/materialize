@@ -6,7 +6,6 @@ import {
     HTTP_STATUS,
     StandardErrorResponse,
 } from "../../types/PublicAPITypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
 import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.js";
 import { checkUserHasPrototypeEditAccess } from "../../utils/prototypeAuth.js";
 import { createClient } from "@supabase/supabase-js";
@@ -22,7 +21,6 @@ export async function handleFetchGitHubSourceRepo(
         Body: FetchGitHubSourceRepoRequestBody;
     }>,
     reply: FastifyReply,
-    cache: GlideClient,
 ): Promise<
     APIResponse<FetchGitHubSourceRepoSuccessResponse, StandardErrorResponse>
 > {
@@ -33,7 +31,6 @@ export async function handleFetchGitHubSourceRepo(
         request,
         prototype_id,
         request.log2,
-        cache,
     );
 
     if (!validation.isValid) {

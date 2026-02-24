@@ -1,5 +1,4 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { GlideClient } from "@valkey/valkey-glide";
 import {
   APIResponse,
   EndChatRequestBody,
@@ -23,11 +22,9 @@ import { handleGetSupabaseOAuthToken } from "./handleGetSupabaseOAuthToken.js";
 import { handleFetchGitHubSourceRepo } from "./handleFetchGitHubSourceRepo.js";
 
 export class OrchestrationService {
-  private cache: GlideClient;
   private logger: SystemLogger;
 
-  constructor(cache: GlideClient, logger: SystemLogger) {
-    this.cache = cache;
+  constructor(logger: SystemLogger) {
     this.logger = logger.child({ service: "OrchestrationService" });
   }
 
@@ -134,14 +131,14 @@ export class OrchestrationService {
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
   ): Promise<APIResponse<StartChatResponse, StandardErrorResponse>> {
-    return handleStartChatImpl(request, reply, this.cache);
+    return handleStartChatImpl(request, reply);
   }
 
   private async handleEndChat(
     request: FastifyRequest<{ Body: EndChatRequestBody }>,
     reply: FastifyReply,
   ): Promise<APIResponse<EndChatResponse, StandardErrorResponse>> {
-    return handleEndChatImpl(request, reply, this.cache);
+    return handleEndChatImpl(request, reply);
   }
 
   private async handleRefreshGitHubInstallationToken(
@@ -155,7 +152,7 @@ export class OrchestrationService {
       RefreshGitHubInstallationTokenErrorResponse
     >
   > {
-    return handleRefreshGitHubInstallationToken(request, reply, this.cache);
+    return handleRefreshGitHubInstallationToken(request, reply);
   }
 
   private async handleGetSupabaseOAuthToken(
@@ -164,7 +161,7 @@ export class OrchestrationService {
   ): Promise<
     APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
   > {
-    return handleGetSupabaseOAuthToken(request, reply, this.cache);
+    return handleGetSupabaseOAuthToken(request, reply);
   }
 
   private async handleFetchGitHubSourceRepo(
@@ -173,6 +170,6 @@ export class OrchestrationService {
   ): Promise<
     APIResponse<FetchGitHubSourceRepoSuccessResponse, StandardErrorResponse>
   > {
-    return handleFetchGitHubSourceRepo(request, reply, this.cache);
+    return handleFetchGitHubSourceRepo(request, reply);
   }
 }

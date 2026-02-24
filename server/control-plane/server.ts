@@ -4,7 +4,6 @@ import { ECSClient } from "@aws-sdk/client-ecs";
 import { S3Client } from "@aws-sdk/client-s3";
 import { STSClient } from "@aws-sdk/client-sts";
 import cors from "@fastify/cors";
-import { GlideClient } from "@valkey/valkey-glide";
 import "dotenv/config";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import Fastify from "fastify";
@@ -63,7 +62,6 @@ export const posthogLogger = new PostHogLogger({
 
 // Initialize clients
 const initializeClients = async (): Promise<{
-  cacheClient: GlideClient;
   ecsClient: ECSClient;
   ec2Client: EC2Client;
   autoScalingClient: AutoScalingClient;
@@ -82,28 +80,12 @@ const initializeClients = async (): Promise<{
     region: process.env.AWS_REGION!,
   });
 
-  const cacheClient = await GlideClient.createClient({
-    addresses: [
-      {
-        host: process.env.CACHE_HOST!,
-        port: parseInt(process.env.CACHE_PORT!),
-      },
-    ],
-    useTLS: true,
-    credentials: {
-      username: process.env.CACHE_USERNAME!,
-      password: process.env.CACHE_PASSWORD!,
-    },
-    clientName: "control-plane",
-    requestTimeout: 2000,
-  });
   const s3Client = new S3Client({
     region: process.env.AWS_REGION || "us-east-2",
   });
   const stsClient = new STSClient({ region: process.env.AWS_REGION });
 
   return {
-    cacheClient,
     ecsClient,
     ec2Client,
     autoScalingClient,
@@ -180,29 +162,13 @@ let internalCleanupServiceManagement: InternalCleanupServiceManagement;
 let llmService: LLMService;
 let fileOperationsService: FileOperationsService;
 let apiKeyService: ApiKeyService;
-let cache: GlideClient;
 
 // Health check
 fastify.get("/health", async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    const result = await cache.ping();
-    if (result === "PONG") {
-      return reply.status(200).send({
-        status: "healthy",
-        timestamp: new Date().toISOString(),
-      });
-    } else {
-      return reply.status(500).send({
-        error: "Internal Server Error",
-        message: `Cache ping returned: ${result}`,
-      });
-    }
-  } catch (error) {
-    return reply.status(500).send({
-      error: "Internal Server Error",
-      message: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
+  return reply.status(200).send({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // Start server
@@ -210,15 +176,12 @@ const start = async (): Promise<void> => {
   try {
     // Initialize clients first
     const {
-      cacheClient,
       ecsClient,
       ec2Client,
       autoScalingClient,
       s3Client,
       stsClient,
     } = await initializeClients();
-
-    cache = cacheClient;
 
     await fastify.register(rawBody, {
       field: "rawBody", // adds request.rawBody
@@ -228,13 +191,12 @@ const start = async (): Promise<void> => {
       routes: ["/github/webhooks"],
     });
 
-    // Create cleanup service with cache and ECS client
-    cleanupService = new CleanupService(cacheClient, ecsClient);
+    // Create cleanup service with ECS client
+    cleanupService = new CleanupService(ecsClient);
 
     // Create idle container allocation system service
     idleContainerAllocationSystemService =
       new IdleContainerAllocationSystemService({
-        cacheClient: cacheClient,
         ecsClient: ecsClient,
         stsClient: stsClient,
         log2: baseLogger,
@@ -242,7 +204,6 @@ const start = async (): Promise<void> => {
 
     // Create dispatcher service with initialized clients
     dispatcherService = new DispatcherService(
-      cacheClient,
       idleContainerAllocationSystemService,
       baseLogger,
     );
@@ -262,7 +223,6 @@ const start = async (): Promise<void> => {
     // Create prototype management service and register routes
     prototypeManagementService = new PrototypeManagementService(
       s3Client,
-      cacheClient,
       dispatcherService,
       cleanupService,
     );
@@ -273,7 +233,7 @@ const start = async (): Promise<void> => {
     developmentServerService.registerRoutes(fastify);
 
     // Create orchestration service and register routes
-    orchestrationService = new OrchestrationService(cacheClient, baseLogger);
+    orchestrationService = new OrchestrationService(baseLogger);
     orchestrationService.registerRoutes(fastify);
 
     // Create GitHub integration service and register routes
@@ -289,7 +249,7 @@ const start = async (): Promise<void> => {
     convexIntegrationService.registerRoutes(fastify);
 
     // Create internal tools service and register routes
-    internalToolsService = new InternalCacheManagementService(cacheClient);
+    internalToolsService = new InternalCacheManagementService();
     internalToolsService.registerRoutes(fastify);
 
     // Create internal dev server management service and register routes
@@ -308,7 +268,6 @@ const start = async (): Promise<void> => {
 
     // Create internal cleanup service management and register routes
     internalCleanupServiceManagement = new InternalCleanupServiceManagement(
-      cacheClient,
       cleanupService,
     );
     internalCleanupServiceManagement.registerRoutes(fastify);

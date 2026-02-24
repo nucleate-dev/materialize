@@ -6,7 +6,6 @@ import {
     RefreshGitHubInstallationTokenRequestBody,
     RefreshGitHubInstallationTokenSuccessResponse,
 } from "../../types/PublicAPITypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
 import { validateJWTToken } from "../../utils/prototypeAuth.js";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
@@ -19,7 +18,6 @@ export async function handleRefreshGitHubInstallationToken(
         Body: RefreshGitHubInstallationTokenRequestBody;
     }>,
     reply: FastifyReply,
-    cache: GlideClient,
 ): Promise<
     APIResponse<
         RefreshGitHubInstallationTokenSuccessResponse,
@@ -33,7 +31,6 @@ export async function handleRefreshGitHubInstallationToken(
         request,
         prototype_id,
         request.log2,
-        cache,
     );
 
     if (!validation.isValid) {
