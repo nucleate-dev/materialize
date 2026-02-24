@@ -6,7 +6,6 @@ import {
     HTTP_STATUS,
     StandardErrorResponse,
 } from "../../types/PublicAPITypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
 import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.js";
 import { createClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
@@ -20,7 +19,6 @@ export async function handleGetSupabaseOAuthToken(
         Body: GetSupabaseOAuthTokenRequestBody;
     }>,
     reply: FastifyReply,
-    cache: GlideClient,
 ): Promise<
     APIResponse<GetSupabaseOAuthTokenSuccessResponse, StandardErrorResponse>
 > {
@@ -31,7 +29,6 @@ export async function handleGetSupabaseOAuthToken(
         request,
         prototype_id,
         request.log2,
-        cache,
     );
 
     if (!validation.isValid) {

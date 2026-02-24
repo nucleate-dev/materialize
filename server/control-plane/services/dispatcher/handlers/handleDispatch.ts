@@ -1,5 +1,5 @@
-import { GlideClient } from '@valkey/valkey-glide';
 import axios from 'axios';
+import { randomBytes } from 'crypto';
 import { LatencyEvents } from '../../../loggers/LatencyEvents.js';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
 import {
@@ -12,7 +12,6 @@ import {
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
-  CACHE_KEYS,
   FargateInstanceInfo,
   isActiveBuildType,
   S3_URL_TEMPLATE,
@@ -23,12 +22,14 @@ import {
   DispatchSuccessResponse,
   StandardErrorResponse,
 } from '../../../types/PublicAPITypes.js';
-import { randomBytes } from 'crypto';
 import {
-  activeBuildToStringRecord,
-  hgetallAsActiveBuild,
-  hgetallAsDevBuild,
+  createNewBuild,
+  getCurrentBuildForPrototype,
+  getActiveBuild,
   removeBuildDataFromCache,
+  updateBuildFields,
+  getDevBuild,
+  upsertDevBuild,
 } from '../../../utils/cacheInteractionUtils.js';
 import {
   checkUserHasPrototypeEditAccess,
@@ -43,7 +44,6 @@ import { IdleContainerAllocationSystemService } from '../../idle-container-alloc
 export async function handleDispatchImpl(
   prototype_id: string,
   jwt: string,
-  cache: GlideClient,
   idleContainerAllocationSystem: IdleContainerAllocationSystemService,
   log2: SystemLogger,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
@@ -57,7 +57,6 @@ export async function handleDispatchImpl(
   ) {
     return await handleDispatchForSandboxSimulatorFlow(
       prototype_id,
-      cache,
       jwt,
       log2,
     );
@@ -90,54 +89,53 @@ export async function handleDispatchImpl(
     const currentTime = Math.floor(Date.now() / 1000);
 
     // Check if there's an existing current build
-    const currentBuildId = await cache.get(
-      CACHE_KEYS.protoCurrentBuild(prototype_id),
-    );
+    const currentBuildResult =
+      await getCurrentBuildForPrototype(prototype_id);
 
     let shouldCreateNewBuild = true;
-    if (currentBuildId) {
+    let currentBuildId: string | null = null;
+    if (currentBuildResult) {
+      currentBuildId = currentBuildResult.buildId;
+      const existingBuild = currentBuildResult.build;
+
       log2.consoleLogDevOnly('info', 'Current build ID found: ', {
         currentBuildId,
       });
-      const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-      const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
 
-      if (existingBuild) {
-        if (!isActiveBuildType(existingBuild)) {
-          return {
-            data: null,
-            error: {
-              error: 'Internal Server Error',
-              message: 'Invalid build data in cache',
-            },
-          };
-        }
+      if (!isActiveBuildType(existingBuild)) {
+        return {
+          data: null,
+          error: {
+            error: 'Internal Server Error',
+            message: 'Invalid build data in cache',
+          },
+        };
+      }
 
-        // If build is cleaning or building, proceed with new build
-        if (isDevServerInShutdownStages(existingBuild.status)) {
-          log2.consoleLogDevOnly(
-            'info',
-            `Existing devserver ${currentBuildId} is cleaning or building, creating new devserver`,
-          );
-          shouldCreateNewBuild = true;
-        } else if (isDispatchInProgress(existingBuild.status)) {
-          // If build is actively working, return error
-          return {
-            data: null,
-            error: {
-              error: 'Conflict',
-              message:
-                'There is already an active dispatch request for this prototype',
-            },
-          };
-        } else {
-          // Reuse existing stable build
-          shouldCreateNewBuild = false;
-        }
+      // If build is cleaning or building, proceed with new build
+      if (isDevServerInShutdownStages(existingBuild.status)) {
+        log2.consoleLogDevOnly(
+          'info',
+          `Existing devserver ${currentBuildId} is cleaning or building, creating new devserver`,
+        );
+        shouldCreateNewBuild = true;
+      } else if (isDispatchInProgress(existingBuild.status)) {
+        // If build is actively working, return error
+        return {
+          data: null,
+          error: {
+            error: 'Conflict',
+            message:
+              'There is already an active dispatch request for this prototype',
+          },
+        };
+      } else {
+        // Reuse existing stable build
+        shouldCreateNewBuild = false;
       }
     }
 
-    let activeBuildKey: string;
+    let buildId: string;
     let updatedBuildCacheData: ActiveBuild;
     if (shouldCreateNewBuild) {
       log2.consoleLogDevOnly('info', 'Creating new build');
@@ -152,12 +150,12 @@ export async function handleDispatchImpl(
         orchestration_token: '',
         clean_attempts: 0,
       };
-      activeBuildKey = await setNewBuildCacheData(
-        cache,
-        prototype_id,
-        currentTime,
-        newBuildCacheData,
-      );
+      buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      const activeBuildKey = `active_build:${buildId}`;
+      await createNewBuild(buildId, prototype_id, newBuildCacheData);
+
       let newFargateInstance: FargateInstanceInfo;
       try {
         newFargateInstance = await log2.time(
@@ -173,12 +171,10 @@ export async function handleDispatchImpl(
           },
         );
       } catch (error) {
-        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
         await removeBuildDataFromCache(
-          cache,
           log2,
           prototype_id,
-          buildIdFromKey,
+          buildId,
         ); // remove build data from cache so it doesn't affect future builds
         log2.error(error, 'Failed to launch fargate instance for dispatcher');
         throw error;
@@ -195,8 +191,8 @@ export async function handleDispatchImpl(
     } else {
       // Reuse existing build
       log2.consoleLogDevOnly('info', 'Reusing existing build');
-      activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-      const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
+      buildId = currentBuildId as string;
+      const existingBuild = await getActiveBuild(buildId);
       if (!existingBuild || !isActiveBuildType(existingBuild)) {
         return {
           data: null,
@@ -212,10 +208,7 @@ export async function handleDispatchImpl(
         last_touched: currentTime,
       };
     }
-    await cache.hset(
-      activeBuildKey,
-      activeBuildToStringRecord(updatedBuildCacheData),
-    );
+    await updateBuildFields(buildId, updatedBuildCacheData);
     // NOTE: at this point, there should always be an active build, with status "updating"
 
     // Dispatch request to fargate instance
@@ -231,18 +224,11 @@ export async function handleDispatchImpl(
         updatedBuildCacheData.url =
           fargateResponse.data.tunnel_url || getS3Url(prototype_id);
         updatedBuildCacheData.last_touched = Math.floor(Date.now() / 1000);
-        await cache.hset(
-          activeBuildKey,
-          activeBuildToStringRecord(updatedBuildCacheData),
-        );
-        // Update builds ZSET with new timestamp
-        const buildIdFromKey = activeBuildKey.replace('active_build:', '');
-        await cache.customCommand([
-          'ZADD',
-          CACHE_KEYS.protoBuilds(prototype_id),
-          updatedBuildCacheData.last_touched.toString(),
-          buildIdFromKey,
-        ]);
+        await updateBuildFields(buildId, {
+          status: updatedBuildCacheData.status,
+          url: updatedBuildCacheData.url,
+          last_touched: updatedBuildCacheData.last_touched,
+        });
         log2.consoleLogDevOnly('info', 'Updated build cache data: ', {
           activeBuildCacheData: updatedBuildCacheData,
         });
@@ -278,10 +264,9 @@ export async function handleDispatchImpl(
         'There was an error dispatching the request to the fargate instance',
       );
       updatedBuildCacheData.status = 'error';
-      await cache.hset(
-        activeBuildKey,
-        activeBuildToStringRecord(updatedBuildCacheData),
-      );
+      await updateBuildFields(buildId, {
+        status: updatedBuildCacheData.status,
+      });
 
       return {
         data: null,
@@ -384,33 +369,6 @@ async function dispatchFormedRequestToFargateInstanceServer(
   }
 }
 
-async function setNewBuildCacheData(
-  cache: GlideClient,
-  prototype_id: string,
-  currentTime: number,
-  newBuildCacheData: ActiveBuild,
-): Promise<string> {
-  const buildId = `build_${prototype_id}_${Date.now()}_${Math.random()
-    .toString(36)
-    .substr(2, 9)}`;
-  const activeBuildKey = CACHE_KEYS.activeBuild(buildId);
-  // Set the new build as active
-  await cache.hset(
-    activeBuildKey,
-    activeBuildToStringRecord(newBuildCacheData),
-  );
-  // Update current pointer
-  await cache.set(CACHE_KEYS.protoCurrentBuild(prototype_id), buildId);
-  // Add to builds ZSET
-  await cache.customCommand([
-    'ZADD',
-    CACHE_KEYS.protoBuilds(prototype_id),
-    currentTime.toString(),
-    buildId,
-  ]);
-  return activeBuildKey;
-}
-
 function getS3Url(prototypeId: string): string {
   // Construct S3/CloudFront URL for the prototype
   return S3_URL_TEMPLATE(prototypeId);
@@ -430,12 +388,10 @@ function normalizeUrl(url: string): string {
 
 async function handleDispatchForSandboxSimulatorFlow(
   prototype_id: string,
-  cache: GlideClient,
   jwt: string,
   log2: SystemLogger,
 ): Promise<APIResponse<DispatchSuccessResponse, StandardErrorResponse>> {
-  const devKey = CACHE_KEYS.protoDev(prototype_id);
-  const existingDevData = await hgetallAsDevBuild(cache, devKey);
+  const existingDevData = await getDevBuild(prototype_id);
 
   if (
     existingDevData?.status &&
@@ -466,7 +422,7 @@ async function handleDispatchForSandboxSimulatorFlow(
   // Set initial status, url, and tunnel hostname
   const devTerminalUrl = `http://${process.env.DEVELOPMENT_EC2_IP}:3002`;
   const orchestration_token = randomBytes(32).toString('hex');
-  await cache.hset(devKey, {
+  await upsertDevBuild(prototype_id, {
     status: 'updating' as BuildStatus,
     url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
     terminal_tunnel_hostname: devTerminalUrl,
@@ -515,7 +471,7 @@ async function handleDispatchForSandboxSimulatorFlow(
         'Failed to allocate worker in dev mode',
         { details: allocateResponse.data.error.details },
       );
-      await cache.hset(devKey, {
+      await upsertDevBuild(prototype_id, {
         status: 'error' as BuildStatus,
         url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
       });
@@ -530,7 +486,7 @@ async function handleDispatchForSandboxSimulatorFlow(
     log2.consoleLogDevOnly('info', 'Worker allocated successfully in dev mode');
   } catch (allocateError) {
     log2.error(allocateError, 'Failed to call /allocate in dev mode');
-    await cache.hset(devKey, {
+    await upsertDevBuild(prototype_id, {
       status: 'error' as BuildStatus,
       url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
     });
@@ -558,7 +514,7 @@ async function handleDispatchForSandboxSimulatorFlow(
     const newUrl = normalizeUrl(
       fargateResponse.data.tunnel_url || getS3Url(prototype_id),
     );
-    await cache.hset(devKey, {
+    await upsertDevBuild(prototype_id, {
       status: 'stable' as BuildStatus,
       url: newUrl,
     });
@@ -570,7 +526,7 @@ async function handleDispatchForSandboxSimulatorFlow(
       error: null,
     };
   } else {
-    await cache.hset(devKey, {
+    await upsertDevBuild(prototype_id, {
       status: 'error' as BuildStatus,
       url: existingDevData?.url || normalizeUrl(getS3Url(prototype_id)),
     });

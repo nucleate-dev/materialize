@@ -7,14 +7,12 @@ import {
 } from "../../../types/PublicAPITypes.js";
 import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
 import {
-  CACHE_KEYS,
   isActiveBuildType,
   S3_URL_TEMPLATE,
 } from "../../../types/InternalTypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
 import {
-  hgetallAsActiveBuild,
-  hgetallAsDevBuild,
+  getCurrentBuildForPrototype,
+  getDevBuild,
 } from "../../../utils/cacheInteractionUtils.js";
 import {
   isRunningDevServer,
@@ -24,7 +22,6 @@ import { SystemLogger } from "../../../loggers/SystemLogger.js";
 export async function handleDispatchPrecheckImpl(
   body: DispatchPrecheckRequestBody,
   jwt: string,
-  cache: GlideClient,
   log2: SystemLogger,
 ): Promise<
   APIResponse<DispatchPrecheckSuccessResponse, StandardErrorResponse>
@@ -40,8 +37,7 @@ export async function handleDispatchPrecheckImpl(
     process.env.FARGATE_DEV_MODE === "true" &&
     process.env.FARGATE_DEV_IP
   ) {
-    const devKey = CACHE_KEYS.protoDev(prototype_id);
-    const existingDevData = await hgetallAsDevBuild(cache, devKey);
+    const existingDevData = await getDevBuild(prototype_id);
     return {
       data: {
         status: (existingDevData?.status as BuildStatus) || null,
@@ -77,40 +73,35 @@ export async function handleDispatchPrecheckImpl(
   });
 
   try {
-    // Check current build pointer
-    const currentBuildId = await cache.get(
-      CACHE_KEYS.protoCurrentBuild(prototype_id),
-    );
+    // Check current build
+    const currentBuildResult = await getCurrentBuildForPrototype(prototype_id);
 
-    if (currentBuildId) {
-      const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId as string);
-      const existingBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
+    if (currentBuildResult) {
+      const existingBuild = currentBuildResult.build;
 
-      if (existingBuild) {
-        if (!isActiveBuildType(existingBuild)) {
-          return {
-            data: null,
-            error: {
-              error: "Internal Server Error",
-              message: "Invalid build data in storage",
-            },
-          };
-        }
-
+      if (!isActiveBuildType(existingBuild)) {
         return {
-          data: {
-            status: existingBuild.status,
-            viewing_url: normalizeUrl(
-              isRunningDevServer(existingBuild.status)
-                ? existingBuild.url
-                : getS3Url(prototype_id),
-            ),
-            terminal_tunnel_hostname: existingBuild.terminal_tunnel_hostname ||
-              null,
+          data: null,
+          error: {
+            error: "Internal Server Error",
+            message: "Invalid build data in storage",
           },
-          error: null,
         };
       }
+
+      return {
+        data: {
+          status: existingBuild.status,
+          viewing_url: normalizeUrl(
+            isRunningDevServer(existingBuild.status)
+              ? existingBuild.url
+              : getS3Url(prototype_id),
+          ),
+          terminal_tunnel_hostname: existingBuild.terminal_tunnel_hostname ||
+            null,
+        },
+        error: null,
+      };
     }
 
     // No active build, return S3 URL

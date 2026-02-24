@@ -1,8 +1,6 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { GlideClient } from '@valkey/valkey-glide';
 import { FastifyReply, FastifyRequest } from 'fastify';
 import { SystemLogger } from '../../../loggers/SystemLogger.js';
-import { CACHE_KEYS } from '../../../types/InternalTypes.js';
 import {
   APIResponse,
   DeletePrototypeErrorResponse,
@@ -10,7 +8,7 @@ import {
   HTTP_STATUS,
 } from '../../../types/PublicAPITypes.js';
 import { checkUserHasPrototypeEditAccess } from '../../../utils/prototypeAuth.js';
-import { hgetallAsActiveBuild } from '../../../utils/cacheInteractionUtils.js';
+import { getCurrentBuildForPrototype } from '../../../utils/cacheInteractionUtils.js';
 import {
   deletePrototypeAssetsFromStorage,
   deletePrototypeChatImagesFromStorage,
@@ -25,7 +23,6 @@ export default async function handleDeletePrototypeImpl(
   request: FastifyRequest<{ Params: { prototype_id: string } }>,
   reply: FastifyReply,
   s3Client: S3Client,
-  cache: GlideClient,
   cleanupService: CleanupService,
 ): Promise<
   APIResponse<DeletePrototypeSuccessResponse, DeletePrototypeErrorResponse>
@@ -78,7 +75,6 @@ export default async function handleDeletePrototypeImpl(
         ),
         killActiveFargateInstanceIfItExists(
           prototype_id,
-          cache,
           request.log2,
           cleanupService,
         ),
@@ -147,16 +143,13 @@ export default async function handleDeletePrototypeImpl(
 
 async function killActiveFargateInstanceIfItExists(
   prototypeId: string,
-  cache: GlideClient,
   log2: SystemLogger,
   cleanupService: CleanupService,
 ): Promise<void> {
   try {
-    // 1. Check if there is a current active build for this prototype in the cache
-    const currentBuildIdRaw = await cache.get(
-      CACHE_KEYS.protoCurrentBuild(prototypeId),
-    );
-    if (!currentBuildIdRaw) {
+    // 1. Check if there is a current active build for this prototype
+    const currentBuildResult = await getCurrentBuildForPrototype(prototypeId);
+    if (!currentBuildResult) {
       log2.consoleLogDevOnly(
         'info',
         'No active build found for prototype during deletion',
@@ -165,18 +158,8 @@ async function killActiveFargateInstanceIfItExists(
       return; // No active build
     }
 
-    const currentBuildId = currentBuildIdRaw.toString();
-    const activeBuildKey = CACHE_KEYS.activeBuild(currentBuildId);
-    const activeBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
-
-    if (!activeBuild) {
-      log2.consoleLogDevOnly(
-        'warn',
-        'Build ID exists but build data not found during prototype deletion',
-        { prototypeId, currentBuildId },
-      );
-      return; // Build data not found
-    }
+    const { build: activeBuild, buildId: currentBuildId } = currentBuildResult;
+    const activeBuildKey = `active_build:${currentBuildId}`;
 
     log2.consoleLogDevOnly(
       'info',

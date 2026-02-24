@@ -7,13 +7,11 @@ import {
 } from "@aws-sdk/client-ecs";
 import {
   AssumeRoleCommand,
-  // GetCallerIdentityCommand,
   STSClient,
 } from "@aws-sdk/client-sts";
-import { GlideClient } from "@valkey/valkey-glide";
 import axios from "axios";
 import { randomBytes } from "crypto";
-import type { SystemLogger } from "../../loggers/SystemLogger.js"; // adjust your path
+import type { SystemLogger } from "../../loggers/SystemLogger.js";
 import {
   PublicAllocateRequest,
   PublicAllocateSuccessResponse,
@@ -23,12 +21,20 @@ import {
 import {
   ActiveBuild,
   BUILD_TIMEOUTS,
-  CACHE_KEYS,
   FargateInstanceInfo,
   IdleBuild,
-  IdleContainerStatus,
 } from "../../types/InternalTypes.js";
-import { updateBuildTunnelInfo } from "../../utils/cacheInteractionUtils.js";
+import {
+  getIdleContainerCount,
+  popOldestIdleContainer,
+  popNewestIdleContainer,
+  insertIdleContainer,
+  updateIdleContainerReady,
+  deleteIdleContainer,
+  idleContainerExists,
+  updateBuildFields,
+  updateBuildTunnelInfo,
+} from "../../utils/cacheInteractionUtils.js";
 import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import { getSubscriptionInfo } from "../../utils/subscriptionChecks.js";
 import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
@@ -38,7 +44,6 @@ import { Database } from "../../types/supabase.js";
 const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
 export class IdleContainerAllocationSystemService {
-  private readonly cache: GlideClient;
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
@@ -47,12 +52,10 @@ export class IdleContainerAllocationSystemService {
   private maintenanceTimer?: NodeJS.Timeout;
 
   constructor(opts: {
-    cacheClient: GlideClient;
     ecsClient: ECSClient;
     stsClient: STSClient;
     log2: SystemLogger;
   }) {
-    this.cache = opts.cacheClient;
     this.ecsClient = opts.ecsClient;
     this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
@@ -86,7 +89,7 @@ export class IdleContainerAllocationSystemService {
 
   private async ensureIdleCapacity(): Promise<void> {
     if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
-    const currentIdle = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
+    const currentIdle = await getIdleContainerCount();
     const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
@@ -105,25 +108,23 @@ export class IdleContainerAllocationSystemService {
       );
 
       // Collect tasks to remove
-      const taskArns: string[] = [];
+      const idleBuilds: IdleBuild[] = [];
       for (let i = 0; i < toRemove; i++) {
-        const taskArn = await this.cache.lpop(CACHE_KEYS.idleBuildsListKey); // clean newer tasks that may not be ready first
-        if (taskArn) {
-          taskArns.push(taskArn as string);
+        const idleBuild = await popNewestIdleContainer(); // clean newer tasks that may not be ready first
+        if (idleBuild) {
+          idleBuilds.push(idleBuild);
         }
       }
 
       // Run cleanup concurrently
       await Promise.all(
-        taskArns.map(async (taskArn) => {
-          const idleKey = CACHE_KEYS.idleBuild(taskArn);
+        idleBuilds.map(async (idleBuild) => {
           try {
-            await this.terminateFargateTask(taskArn);
-            await this.cache.del([idleKey]);
+            await this.terminateFargateTask(idleBuild.fargate_task_arn);
           } catch (error) {
             this.log2.error(
               error,
-              `[IdleAlloc] Failed to terminate extra idle task ${taskArn}`,
+              `[IdleAlloc] Failed to terminate extra idle task ${idleBuild.fargate_task_arn}`,
             );
           }
         }),
@@ -133,7 +134,6 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
-  /** Dispatcher calls this to get a ready container for a prototype */
   /** Dispatcher calls this to get a ready container for a prototype */
   public async allocateFargateDevServer(
     prototypeId: string,
@@ -156,12 +156,10 @@ export class IdleContainerAllocationSystemService {
     }
 
     // 1. Try to pop an idle container from the pool
-    const taskArn = (await this.cache.rpop(CACHE_KEYS.idleBuildsListKey)) as // NOTE: this is an atomic operation
-      | string
-      | null;
+    const taskData = await popOldestIdleContainer(); // NOTE: this is an atomic operation
 
     // 2. No idle containers found. Fallback to direct launch and replenish in background
-    if (!taskArn) {
+    if (!taskData) {
       this.log2.consoleLogDevOnly(
         "info",
         "[ContainerAlloc] No idle containers found, falling back to direct launch",
@@ -187,21 +185,18 @@ export class IdleContainerAllocationSystemService {
       return info;
     }
 
-    // 3. We got an idle container reference. Retrieve data from cache and remove from cache
-    const idleKey = CACHE_KEYS.idleBuild(taskArn);
-    const taskData = await this.hgetallAsIdleBuild(idleKey);
-    await this.cache.del([idleKey]);
+    // 3. We got an idle container with full data (pop already deleted the row)
+    const taskArn = taskData.fargate_task_arn;
     // Replenish idle pool in background
     this.launchIdleContainer().catch((err) =>
       this.log2.error(err, "[IdleAlloc] Failed to replenish idle container")
     );
 
     // 4. If the idle container is not usable, clean it up in the background and fallback to direct launch
-    if (!taskData || !taskData.fargate_task_arn) {
+    if (!taskArn) {
       this.log2.warn(
-        `[ContainerAlloc] Idle container ${taskArn} missing metadata, falling back to direct launch`,
+        `[ContainerAlloc] Idle container missing metadata, falling back to direct launch`,
       );
-      this.terminateFargateTask(taskArn); // in background do not await
       return await this.launchFargateInstanceForDispatcherDirectly(
         prototypeId,
         this.log2,
@@ -294,14 +289,8 @@ export class IdleContainerAllocationSystemService {
     }
 
     // Immediately add placeholder entry in cache
-    const idleKey = CACHE_KEYS.idleBuild(taskArn);
     try {
-      await this.cache.hset(idleKey, {
-        fargate_task_arn: taskArn,
-        fargate_private_ip: "",
-        status: "creating",
-      });
-      await this.cache.lpush(CACHE_KEYS.idleBuildsListKey, [taskArn]);
+      await insertIdleContainer(taskArn);
     } catch (error) {
       this.log2.error(
         error,
@@ -319,25 +308,21 @@ export class IdleContainerAllocationSystemService {
     if (!privateIp) {
       this.log2.error("Failed to get private IP for idle container");
       await this.terminateFargateTask(taskArn);
-      await this.cache.del([idleKey]);
+      await deleteIdleContainer(taskArn);
       return;
     }
     // Update entry to ready
     try {
-      const exists = await this.cache.exists([idleKey]);
+      const exists = await idleContainerExists(taskArn);
       if (!exists) {
         this.log2.consoleLogDevOnly(
           "info",
           "Idle container Fargate Task is ready, but idle container is already popped from the cache for use",
-          { idleKey },
+          { taskArn },
         );
         return;
       }
-      await this.cache.hset(idleKey, {
-        fargate_task_arn: taskArn,
-        fargate_private_ip: privateIp,
-        status: "ready",
-      });
+      await updateIdleContainerReady(taskArn, privateIp);
       this.log2.consoleLogDevOnly(
         "info",
         "Idle container launched and marked ready",
@@ -353,7 +338,7 @@ export class IdleContainerAllocationSystemService {
         "Failed to update idle container state to ready in cache, deleting and cleaning up fargate task",
       );
       await this.terminateFargateTask(taskArn);
-      await this.cache.del([idleKey]);
+      await deleteIdleContainer(taskArn);
       return;
     }
   }
@@ -383,14 +368,15 @@ export class IdleContainerAllocationSystemService {
     jwt: string,
     userId: string,
   ): Promise<FargateInstanceInfo> {
+    const buildId = activeBuildKey.replace('active_build:', '');
     try {
       const taskArn = await this.launchFargateInstanceNotReady(log2);
-      await this.cache.hset(activeBuildKey, {
+      await updateBuildFields(buildId, {
         fargate_task_arn: taskArn,
         fargate_private_ip: newBuildCacheData.fargate_private_ip,
         url: newBuildCacheData.url,
         status: newBuildCacheData.status,
-        last_touched: newBuildCacheData.last_touched.toString(),
+        last_touched: newBuildCacheData.last_touched,
       });
       const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
         taskArn,
@@ -576,27 +562,6 @@ export class IdleContainerAllocationSystemService {
     };
   }
 
-  private async hgetallAsIdleBuild(key: string): Promise<IdleBuild | null> {
-    const raw = await this.cache.hgetall(key);
-
-    if (!raw || raw.length === 0) return null;
-
-    const obj = Object.fromEntries(
-      raw.map(
-        (e: {
-          field: { toString(): string };
-          value: { toString(): string };
-        }) => [e.field.toString(), e.value.toString()],
-      ),
-    ) as Record<string, string>;
-
-    return {
-      fargate_task_arn: obj.fargate_task_arn,
-      fargate_private_ip: obj.fargate_private_ip,
-      status: obj.status as IdleContainerStatus,
-    };
-  }
-
   /** Tell running idle container to switch to a real prototypeId */
   private async scopeS3PermissionsAndTerminalTunnelsForContainer(
     info: FargateInstanceInfo,
@@ -610,21 +575,11 @@ export class IdleContainerAllocationSystemService {
       "terminalTunnelId" | "terminalTunnelHostname" | "orchestrationToken"
     >
   > {
+    const buildId = activeBuildKey.replace('active_build:', '');
+
     // Assume AWS STS role for S3 access
     let out;
     try {
-      // const callerIdentity = await this.stsClient.send(
-      //   new GetCallerIdentityCommand({}),
-      // );
-      // this.log2.consoleLogDevOnly(
-      //   'debug',
-      //   'STS caller identity from Node before AssumeRole',
-      //   { callerIdentity },
-      // );
-      // this.log2.consoleLogDevOnly('debug', 'AWS env in Node', {
-      //   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-      //   AWS_PROFILE: process.env.AWS_PROFILE,
-      // });
       out = await this.stsClient.send(
         new AssumeRoleCommand({
           RoleArn: process.env.S3_PROTOTYPE_ACCESS_ROLE_ARN!,
@@ -697,8 +652,7 @@ export class IdleContainerAllocationSystemService {
 
     try {
       await updateBuildTunnelInfo(
-        this.cache,
-        activeBuildKey,
+        buildId,
         tunnelConfig.tunnel_id || "",
         tunnelHostnameWithProtocol,
         orchestrationToken,
@@ -852,7 +806,7 @@ export class IdleContainerAllocationSystemService {
 
     try {
       // Get all idle container task ARNs from the list
-      const idleCount = await this.cache.llen(CACHE_KEYS.idleBuildsListKey);
+      const idleCount = await getIdleContainerCount();
 
       if (idleCount === 0) {
         this.log2.consoleLogDevOnly("info", "No idle containers to refresh");
@@ -864,28 +818,26 @@ export class IdleContainerAllocationSystemService {
         `Refreshing ${idleCount} idle containers`,
       );
 
-      // Collect all task ARNs from the idle list
-      const taskArns: string[] = [];
+      // Collect all idle containers by popping them
+      const idleBuilds: IdleBuild[] = [];
       for (let i = 0; i < idleCount; i++) {
-        const taskArn = await this.cache.lpop(CACHE_KEYS.idleBuildsListKey);
-        if (taskArn) {
-          taskArns.push(taskArn as string);
+        const idleBuild = await popNewestIdleContainer();
+        if (idleBuild) {
+          idleBuilds.push(idleBuild);
         }
       }
 
       // Terminate all idle containers
-      for (const taskArn of taskArns) {
-        const idleKey = CACHE_KEYS.idleBuild(taskArn);
+      for (const idleBuild of idleBuilds) {
         try {
-          await this.terminateFargateTask(taskArn);
-          await this.cache.del([idleKey]);
+          await this.terminateFargateTask(idleBuild.fargate_task_arn);
           terminatedCount++;
           this.log2.consoleLogDevOnly(
             "info",
-            `Terminated idle container ${taskArn}`,
+            `Terminated idle container ${idleBuild.fargate_task_arn}`,
           );
         } catch (error) {
-          const errorMsg = `Failed to terminate idle container ${taskArn}: ${error instanceof Error ? error.message : "Unknown error"
+          const errorMsg = `Failed to terminate idle container ${idleBuild.fargate_task_arn}: ${error instanceof Error ? error.message : "Unknown error"
             }`;
           this.log2.error(error, errorMsg);
           errors.push(errorMsg);
@@ -933,5 +885,4 @@ export class IdleContainerAllocationSystemService {
       };
     }
   }
-
 }

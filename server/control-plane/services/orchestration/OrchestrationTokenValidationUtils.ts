@@ -1,10 +1,8 @@
 import { FastifyRequest } from "fastify";
 import { SystemLogger } from "../../loggers/SystemLogger.js";
-import { GlideClient } from "@valkey/valkey-glide";
-import { CACHE_KEYS } from "../../types/InternalTypes.js";
 import {
-    hgetallAsActiveBuild,
-    hgetallAsDevBuild,
+    getCurrentBuildForPrototype,
+    getDevBuild,
 } from "../../utils/cacheInteractionUtils.js";
 
 /**
@@ -17,7 +15,6 @@ export async function validateOrchestrationToken(
     request: FastifyRequest,
     prototypeId: string,
     logger: SystemLogger,
-    cache: GlideClient,
 ): Promise<{ isValid: boolean; buildId?: string; errorMessage?: string }> {
     // Extract token from x-orchestration-token header
     const providedToken = request.headers["x-orchestration-token"];
@@ -36,8 +33,7 @@ export async function validateOrchestrationToken(
         process.env.NODE_ENV === "development" &&
         process.env.FARGATE_DEV_MODE === "true"
     ) {
-        const devKey = CACHE_KEYS.protoDev(prototypeId);
-        const existingDevData = await hgetallAsDevBuild(cache, devKey);
+        const existingDevData = await getDevBuild(prototypeId);
         if (existingDevData === null) {
             logger.warn(
                 "[Development mode] No active build found for prototype",
@@ -54,7 +50,6 @@ export async function validateOrchestrationToken(
         if (existingDevData.orchestration_token !== providedToken) {
             logger.warn("Invalid orchestration token provided", {
                 prototypeId,
-                devKey,
             });
             return {
                 isValid: false,
@@ -67,12 +62,10 @@ export async function validateOrchestrationToken(
         };
     }
 
-    // Get current build ID for this prototype from cache
-    const currentBuildIdRaw = await cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototypeId),
-    );
+    // Get current build for this prototype from cache
+    const currentBuildResult = await getCurrentBuildForPrototype(prototypeId);
 
-    if (!currentBuildIdRaw) {
+    if (!currentBuildResult) {
         logger.warn("No active build found for prototype", { prototypeId });
         return {
             isValid: false,
@@ -80,28 +73,7 @@ export async function validateOrchestrationToken(
         };
     }
 
-    // Convert GlideString to string
-    const currentBuildId = typeof currentBuildIdRaw === "string"
-        ? currentBuildIdRaw
-        : currentBuildIdRaw.toString();
-
-    // Fetch the active build from cache
-    const activeBuild = await hgetallAsActiveBuild(
-        cache,
-        CACHE_KEYS.activeBuild(currentBuildId),
-    );
-
-    if (!activeBuild) {
-        logger.error(
-            new Error("Active build data not found in cache"),
-            "Build metadata missing",
-            { prototypeId, buildId: currentBuildId },
-        );
-        return {
-            isValid: false,
-            errorMessage: "Build metadata not found",
-        };
-    }
+    const { build: activeBuild, buildId: currentBuildId } = currentBuildResult;
 
     // Validate the token
     if (activeBuild.orchestration_token !== providedToken) {

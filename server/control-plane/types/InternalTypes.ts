@@ -246,21 +246,6 @@ export function isActiveBuildType(obj: unknown): obj is ActiveBuild {
 // CONSTANTS
 // ============================================================================
 
-export const CACHE_KEYS = {
-  protoCurrentBuild: (prototypeId: string) => `proto:${prototypeId}:current`,
-  protoBuilds: (prototypeId: string) => `proto:${prototypeId}:builds`,
-  activeBuild: (buildId: string) => `active_build:${buildId}`,
-  idleBuildsListKey: 'idle_builds:list',
-  idleBuild: (taskArn: string) => `idle_builds:${taskArn}`,
-  protoDev: (prototypeId: string) => `development:${prototypeId}`,
-} as const;
-
-export const CACHE_PATTERNS = {
-  allActiveBuilds: 'active_build:*',
-  protoBuilds: (prototypeId: string) => `proto:${prototypeId}:*`,
-  allIdleBuilds: 'idle_builds:*',
-} as const;
-
 export const BUILD_TIMEOUTS = {
   FARGATE_LAUNCH_TIMEOUT: 300, // 5 minutes
   REQUEST_TIMEOUT: 300000, // 5 minutes in milliseconds

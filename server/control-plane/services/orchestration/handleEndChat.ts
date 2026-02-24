@@ -1,19 +1,21 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
     APIResponse,
+    BuildStatus,
     EndChatRequestBody,
     EndChatResponse,
     HTTP_STATUS,
     StandardErrorResponse,
 } from "../../types/PublicAPITypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
-import { CACHE_KEYS } from "../../types/InternalTypes.js";
+import {
+    updateBuildStatus,
+    upsertDevBuild,
+} from "../../utils/cacheInteractionUtils.js";
 import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.js";
 
 export async function handleEndChatImpl(
     request: FastifyRequest<{ Body: EndChatRequestBody }>,
     reply: FastifyReply,
-    cache: GlideClient,
 ): Promise<APIResponse<EndChatResponse, StandardErrorResponse>> {
     const { prototype_id } = request.body;
 
@@ -22,7 +24,6 @@ export async function handleEndChatImpl(
         request,
         prototype_id,
         request.log2,
-        cache,
     );
 
     if (!validation.isValid) {
@@ -44,22 +45,17 @@ export async function handleEndChatImpl(
     }
 
     // Update active build state in cache
-    let activeBuildKey;
-    if (
+    const isDevMode =
         process.env.NODE_ENV === "development" &&
-        process.env.FARGATE_DEV_MODE === "true"
-    ) {
-        activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
-    } else {
-        activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-    }
+        process.env.FARGATE_DEV_MODE === "true";
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
-        await cache.hset(activeBuildKey, {
-            status: "stable",
-            last_touched: currentTime.toString(),
-        });
+        if (isDevMode) {
+            await upsertDevBuild(prototype_id, { status: "stable" as BuildStatus });
+        } else {
+            await updateBuildStatus(validation.buildId!, "stable", currentTime);
+        }
 
         request.log2.consoleLogDevOnly(
             "info",

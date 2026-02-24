@@ -1,5 +1,4 @@
 import { S3Client } from "@aws-sdk/client-s3";
-import { GlideClient } from "@valkey/valkey-glide";
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import type {
   APIResponse,
@@ -28,18 +27,15 @@ export class PrototypeManagementService {
   private supabaseUrl: string;
   private supabaseAnonKey: string;
   private s3Client: S3Client;
-  private cache: GlideClient;
   private dispatcherService: DispatcherService;
   private cleanupService: CleanupService;
 
   constructor(
     s3Client: S3Client,
-    cache: GlideClient,
     dispatcherService: DispatcherService,
     cleanupService: CleanupService,
   ) {
     this.s3Client = s3Client;
-    this.cache = cache;
     this.dispatcherService = dispatcherService;
     this.cleanupService = cleanupService;
 
@@ -233,7 +229,6 @@ export class PrototypeManagementService {
           request,
           reply,
           this.s3Client,
-          this.cache,
           this.cleanupService,
         );
       },

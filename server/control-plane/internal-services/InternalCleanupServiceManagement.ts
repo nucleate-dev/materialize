@@ -4,10 +4,8 @@ import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js'
 import { takeScreenshotsOfKilledBuilds } from '../services/cleanup/screenshotUtils.js';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase.js';
-import { GlideClient } from '@valkey/valkey-glide';
 import { CleanupService } from '../services/cleanup/CleanupService.js';
-import { CACHE_KEYS } from '../types/InternalTypes.js';
-import { hgetallAsActiveBuild } from '../utils/cacheInteractionUtils.js';
+import { getCurrentBuildForPrototype } from '../utils/cacheInteractionUtils.js';
 
 interface TakeScreenshotRequestBody {
   prototype_id: string;
@@ -23,11 +21,9 @@ interface ForceCleanWithBuildRequestBody {
 
 export class InternalCleanupServiceManagement {
   private supabaseServiceRole: SupabaseClient<Database>;
-  private cache: GlideClient;
   private cleanupService: CleanupService;
 
-  constructor(cache: GlideClient, cleanupService: CleanupService) {
-    this.cache = cache;
+  constructor(cleanupService: CleanupService) {
     this.cleanupService = cleanupService;
     this.supabaseServiceRole = createClient<Database>(
       process.env.SUPABASE_URL!,
@@ -350,12 +346,11 @@ export class InternalCleanupServiceManagement {
         },
       );
 
-      // Get the current build ID for this prototype
-      const currentBuildIdRaw = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(trimmedPrototypeId),
-      );
+      // Get the current build for this prototype
+      const currentBuildResult =
+        await getCurrentBuildForPrototype(trimmedPrototypeId);
 
-      if (!currentBuildIdRaw) {
+      if (!currentBuildResult) {
         log.warn('No active build found for prototype', {
           prototype_id: trimmedPrototypeId,
         });
@@ -365,40 +360,22 @@ export class InternalCleanupServiceManagement {
         });
       }
 
-      const currentBuildId = currentBuildIdRaw.toString();
+      const currentBuildId = currentBuildResult.buildId;
+      const buildKey = `active_build:${currentBuildId}`;
+      const build = currentBuildResult.build;
 
       log.consoleLogDevOnly('info', 'Found active build for prototype', {
         prototype_id: trimmedPrototypeId,
         build_id: currentBuildId,
       });
 
-      // Get the build data from cache
-      const buildKey = CACHE_KEYS.activeBuild(currentBuildId);
-      const build = await hgetallAsActiveBuild(this.cache, buildKey);
-
-      if (!build) {
-        log.error(
-          new Error('Build data not found in cache'),
-          'Build ID exists in current pointer but data not found in cache',
-          {
-            prototype_id: trimmedPrototypeId,
-            build_id: currentBuildId,
-            build_key: buildKey,
-          },
-        );
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
-          success: false,
-          error: `Build data not found for build ${currentBuildId}`,
-        });
-      }
-
       // Force clean the build without waiting for successful build
       log.consoleLogDevOnly(
         'info',
         'Calling cleanupSingleBuild with shouldWaitForSuccessfulBuild=false',
         {
-          prototype_id: trimmedPrototypeId.trim(),
-          build_id: currentBuildId.trim(),
+          prototype_id: trimmedPrototypeId,
+          build_id: currentBuildId,
         },
       );
 
@@ -500,12 +477,11 @@ export class InternalCleanupServiceManagement {
         },
       );
 
-      // Get the current build ID for this prototype
-      const currentBuildIdRaw = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(trimmedPrototypeId),
-      );
+      // Get the current build for this prototype
+      const currentBuildResult =
+        await getCurrentBuildForPrototype(trimmedPrototypeId);
 
-      if (!currentBuildIdRaw) {
+      if (!currentBuildResult) {
         log.warn('No active build found for prototype', {
           prototype_id: trimmedPrototypeId,
         });
@@ -515,25 +491,14 @@ export class InternalCleanupServiceManagement {
         });
       }
 
-      const currentBuildId = currentBuildIdRaw.toString();
-      // Get the build data from cache (fetch fresh data on each attempt)
-      const buildKey = CACHE_KEYS.activeBuild(currentBuildId);
-      const build = await hgetallAsActiveBuild(this.cache, buildKey);
-      if (!build) {
-        log.error(
-          new Error('Build data not found in cache'),
-          'Build ID exists in current pointer but data not found in cache',
-        );
-        return reply.status(HTTP_STATUS.NOT_FOUND).send({
-          success: false,
-          error: `Build data not found for build ${currentBuildId}`,
-        });
-      } else {
-        log.consoleLogDevOnly('info', 'Found active build for prototype', {
-          prototype_id: trimmedPrototypeId,
-          build_id: currentBuildId,
-        });
-      }
+      const currentBuildId = currentBuildResult.buildId;
+      const buildKey = `active_build:${currentBuildId}`;
+      const build = currentBuildResult.build;
+
+      log.consoleLogDevOnly('info', 'Found active build for prototype', {
+        prototype_id: trimmedPrototypeId,
+        build_id: currentBuildId,
+      });
 
       // Retry loop - attempt cleanup up to MAX_ATTEMPTS times
       let lastError: string | undefined;
@@ -553,8 +518,8 @@ export class InternalCleanupServiceManagement {
           'info',
           `Calling cleanupSingleBuild with shouldWaitForSuccessfulBuild=true (attempt ${attempt})`,
           {
-            prototype_id: trimmedPrototypeId.trim(),
-            build_id: currentBuildId.trim(),
+            prototype_id: trimmedPrototypeId,
+            build_id: currentBuildId,
             attempt,
           },
         );
@@ -571,8 +536,8 @@ export class InternalCleanupServiceManagement {
             'info',
             `Successfully cleaned build for prototype on attempt ${attempt}`,
             {
-              prototype_id: trimmedPrototypeId.trim(),
-              build_id: currentBuildId.trim(),
+              prototype_id: trimmedPrototypeId,
+              build_id: currentBuildId,
               attempt,
             },
           );

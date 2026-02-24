@@ -126,6 +126,108 @@ export type Database = {
           },
         ]
       }
+      cache_active_builds: {
+        Row: {
+          build_id: string
+          clean_attempts: number
+          created_at: string
+          fargate_private_ip: string
+          fargate_task_arn: string
+          is_current: boolean
+          last_touched: number
+          orchestration_token: string
+          prototype_id: string
+          status: string
+          terminal_tunnel_hostname: string
+          terminal_tunnel_id: string
+          url: string
+        }
+        Insert: {
+          build_id: string
+          clean_attempts?: number
+          created_at?: string
+          fargate_private_ip?: string
+          fargate_task_arn?: string
+          is_current?: boolean
+          last_touched: number
+          orchestration_token?: string
+          prototype_id: string
+          status?: string
+          terminal_tunnel_hostname?: string
+          terminal_tunnel_id?: string
+          url?: string
+        }
+        Update: {
+          build_id?: string
+          clean_attempts?: number
+          created_at?: string
+          fargate_private_ip?: string
+          fargate_task_arn?: string
+          is_current?: boolean
+          last_touched?: number
+          orchestration_token?: string
+          prototype_id?: string
+          status?: string
+          terminal_tunnel_hostname?: string
+          terminal_tunnel_id?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      cache_dev_builds: {
+        Row: {
+          created_at: string
+          orchestration_token: string
+          prototype_id: string
+          status: string | null
+          terminal_tunnel_hostname: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          orchestration_token?: string
+          prototype_id: string
+          status?: string | null
+          terminal_tunnel_hostname?: string
+          updated_at?: string
+          url?: string
+        }
+        Update: {
+          created_at?: string
+          orchestration_token?: string
+          prototype_id?: string
+          status?: string | null
+          terminal_tunnel_hostname?: string
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
+      cache_idle_containers: {
+        Row: {
+          created_at: string
+          fargate_private_ip: string
+          fargate_task_arn: string
+          position: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          fargate_private_ip?: string
+          fargate_task_arn: string
+          position?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          fargate_private_ip?: string
+          fargate_task_arn?: string
+          position?: number
+          status?: string
+        }
+        Relationships: []
+      }
       canvas_documents: {
         Row: {
           canvas_id: string | null
@@ -280,101 +382,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      connectors_convex_integration_tokens: {
-        Row: {
-          access_token_encrypted: string
-          created_at: string
-          integration_id: string
-          refresh_token_encrypted: string | null
-          refresh_token_expires_at: string | null
-          token_expires_at: string | null
-          token_scopes: string | null
-          token_type: string | null
-          updated_at: string
-        }
-        Insert: {
-          access_token_encrypted: string
-          created_at?: string
-          integration_id: string
-          refresh_token_encrypted?: string | null
-          refresh_token_expires_at?: string | null
-          token_expires_at?: string | null
-          token_scopes?: string | null
-          token_type?: string | null
-          updated_at?: string
-        }
-        Update: {
-          access_token_encrypted?: string
-          created_at?: string
-          integration_id?: string
-          refresh_token_encrypted?: string | null
-          refresh_token_expires_at?: string | null
-          token_expires_at?: string | null
-          token_scopes?: string | null
-          token_type?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "connectors_convex_integration_tokens_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: true
-            referencedRelation: "connectors_convex_integrations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      connectors_convex_integrations: {
-        Row: {
-          connected_at: string
-          connected_by_user_id: string | null
-          convex_team_id: string
-          convex_team_name: string | null
-          id: string
-          metadata: Json
-          status: Database["public"]["Enums"]["connector_status"]
-          team_id: string
-          updated_at: string
-        }
-        Insert: {
-          connected_at?: string
-          connected_by_user_id?: string | null
-          convex_team_id: string
-          convex_team_name?: string | null
-          id?: string
-          metadata?: Json
-          status?: Database["public"]["Enums"]["connector_status"]
-          team_id: string
-          updated_at?: string
-        }
-        Update: {
-          connected_at?: string
-          connected_by_user_id?: string | null
-          convex_team_id?: string
-          convex_team_name?: string | null
-          id?: string
-          metadata?: Json
-          status?: Database["public"]["Enums"]["connector_status"]
-          team_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "connectors_convex_integrations_connected_by_user_id_fkey"
-            columns: ["connected_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "connectors_convex_integrations_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       connectors_supabase_integration_tokens: {
         Row: {
@@ -1907,6 +1914,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      cache_get_idle_container_count: { Args: never; Returns: number }
+      cache_pop_newest_idle_container: {
+        Args: never
+        Returns: {
+          fargate_private_ip: string
+          fargate_task_arn: string
+          status: string
+        }[]
+      }
+      cache_pop_oldest_idle_container: {
+        Args: never
+        Returns: {
+          fargate_private_ip: string
+          fargate_task_arn: string
+          status: string
+        }[]
+      }
+      cache_remove_build: {
+        Args: { p_build_id: string; p_prototype_id: string }
+        Returns: boolean
+      }
+      cache_set_current_build: {
+        Args: {
+          p_build_id: string
+          p_last_touched: number
+          p_prototype_id: string
+          p_status: string
+          p_url: string
+        }
+        Returns: undefined
+      }
       can_edit_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
       can_view_prototype: { Args: { p_prototype_id: string }; Returns: boolean }
       consume_credits: {
@@ -1934,7 +1972,9 @@ export type Database = {
         Returns: string
       }
       is_team_empty: { Args: { p_team_id: string }; Returns: boolean }
-      is_team_member: { Args: { p_team_id: string }; Returns: boolean }
+      is_team_member:
+        | { Args: { p_team_id: string }; Returns: boolean }
+        | { Args: { p_team_id: string; p_user_id: string }; Returns: boolean }
       is_team_member_with_edit_privileges: {
         Args: { p_team_id: string }
         Returns: boolean

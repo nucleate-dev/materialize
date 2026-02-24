@@ -1,5 +1,3 @@
-import { GlideClient } from '@valkey/valkey-glide';
-import * as dotenv from 'dotenv';
 import {
   type APIResponse,
   type DispatchPrecheckRequestBody,
@@ -14,19 +12,14 @@ import { SystemLogger } from '../../loggers/SystemLogger.js';
 import { PostHogLogger } from '../../loggers/PostHogLogger.js';
 import { PostHogEvents } from '../../loggers/PostHogEvents.js';
 
-dotenv.config();
-
 export class DispatcherService {
-  private cache: GlideClient;
   private idleContainerAllocationSystem: IdleContainerAllocationSystemService;
   private log2: SystemLogger;
 
   constructor(
-    cache: GlideClient,
     idleContainerAllocationSystem: IdleContainerAllocationSystemService,
     log2: SystemLogger,
   ) {
-    this.cache = cache;
     this.idleContainerAllocationSystem = idleContainerAllocationSystem;
     this.log2 = log2.child({
       route: 'DispatcherService',
@@ -56,7 +49,6 @@ export class DispatcherService {
         handleDispatchImpl(
           prototype_id,
           jwt,
-          this.cache,
           this.idleContainerAllocationSystem,
           localLog,
         ),
@@ -73,6 +65,6 @@ export class DispatcherService {
     const localLog = log2.child({
       function: 'dispatchPrecheck',
     });
-    return handleDispatchPrecheckImpl(body, jwt, this.cache, localLog);
+    return handleDispatchPrecheckImpl(body, jwt, localLog);
   }
 }

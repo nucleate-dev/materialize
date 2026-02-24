@@ -1,16 +1,17 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import {
     APIResponse,
+    BuildStatus,
     HTTP_STATUS,
     StandardErrorResponse,
     StartChatRequestBody,
     StartChatResponse,
 } from "../../types/PublicAPITypes.js";
-import { GlideClient } from "@valkey/valkey-glide";
-import { CACHE_KEYS } from "../../types/InternalTypes.js";
 import {
-    hgetallAsActiveBuild,
-    hgetallAsDevBuild,
+    getCurrentBuildForPrototype,
+    getDevBuild,
+    updateBuildStatus,
+    upsertDevBuild,
 } from "../../utils/cacheInteractionUtils.js";
 import { isDevServerInShutdownStages } from "../../utils/prototypeDevServerStatusUtils.js";
 import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.js";
@@ -18,7 +19,6 @@ import { validateOrchestrationToken } from "./OrchestrationTokenValidationUtils.
 export async function handleStartChatImpl(
     request: FastifyRequest<{ Body: StartChatRequestBody }>,
     reply: FastifyReply,
-    cache: GlideClient,
 ): Promise<APIResponse<StartChatResponse, StandardErrorResponse>> {
     const { prototype_id } = request.body;
 
@@ -27,7 +27,6 @@ export async function handleStartChatImpl(
         request,
         prototype_id,
         request.log2,
-        cache,
     );
 
     if (!validation.isValid) {
@@ -50,17 +49,16 @@ export async function handleStartChatImpl(
     }
 
     // Check if build is in shutdown stages (cleaning or building)
-    let activeBuild;
-    let activeBuildKey;
-    if (
+    const isDevMode =
         process.env.NODE_ENV === "development" &&
-        process.env.FARGATE_DEV_MODE === "true"
-    ) {
-        activeBuildKey = CACHE_KEYS.protoDev(prototype_id);
-        activeBuild = await hgetallAsDevBuild(cache, activeBuildKey);
+        process.env.FARGATE_DEV_MODE === "true";
+
+    let activeBuild;
+    if (isDevMode) {
+        activeBuild = await getDevBuild(prototype_id);
     } else {
-        activeBuildKey = CACHE_KEYS.activeBuild(validation.buildId!);
-        activeBuild = await hgetallAsActiveBuild(cache, activeBuildKey);
+        const buildResult = await getCurrentBuildForPrototype(prototype_id);
+        activeBuild = buildResult?.build ?? null;
     }
 
     if (!activeBuild) {
@@ -102,10 +100,11 @@ export async function handleStartChatImpl(
     const currentTime = Math.floor(Date.now() / 1000);
 
     try {
-        await cache.hset(activeBuildKey, {
-            status: "chatting",
-            last_touched: currentTime.toString(),
-        });
+        if (isDevMode) {
+            await upsertDevBuild(prototype_id, { status: "chatting" as BuildStatus });
+        } else {
+            await updateBuildStatus(validation.buildId!, "chatting", currentTime);
+        }
 
         request.log2.consoleLogDevOnly(
             "info",

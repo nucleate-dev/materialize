@@ -1,20 +1,18 @@
-import { GlideClient } from '@valkey/valkey-glide';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { HTTP_STATUS } from '../types/PublicAPITypes.js';
-import { SystemLogger } from '../loggers/SystemLogger.js';
 import { authenticateInternalToolsRequest } from '../utils/internalToolsAuth.js';
 import {
-  CACHE_KEYS,
-  isActiveBuildType,
-  type ActiveBuild,
-} from '../types/InternalTypes.js';
+  clearAllCacheData,
+  getCacheStats,
+  getCurrentBuildId,
+  getActiveBuildsForPrototype,
+  getBuildHistory,
+  deleteAllDevBuilds,
+  deleteDevBuild,
+} from '../utils/cacheInteractionUtils.js';
 
 export class InternalCacheManagementService {
-  private cache: GlideClient;
-
-  constructor(cache: GlideClient) {
-    this.cache = cache;
-  }
+  constructor() {}
 
   // Register routes with Fastify
   public registerRoutes(app: FastifyInstance): void {
@@ -418,8 +416,7 @@ export class InternalCacheManagementService {
     request.log2.consoleLogDevOnly('info', 'Starting cache clear operation');
 
     try {
-      // Clear all cache data using FLUSHALL command
-      await this.cache.flushall();
+      await clearAllCacheData();
 
       const duration = Date.now() - startTime;
       request.log2.consoleLogDevOnly('info', 'Cache cleared successfully', {
@@ -454,58 +451,33 @@ export class InternalCacheManagementService {
     request.log2.consoleLogDevOnly('info', 'Fetching cache statistics');
 
     try {
-      // Get all keys to count them by pattern
-      const allKeys = await this.scanAllKeys(request.log2);
-
-      // Categorize keys by pattern (using correct patterns from CACHE_KEYS)
-      const activeBuildKeys = allKeys.filter((key) =>
-        key.startsWith('active_build:'),
-      );
-      const prototypeBuildKeys = allKeys.filter(
-        (key) => key.includes(':builds') && key.startsWith('proto:'),
-      );
-      const currentBuildKeys = allKeys.filter(
-        (key) => key.includes(':current') && key.startsWith('proto:'),
-      );
-      const idleBuildKeys = allKeys.filter(
-        (key) =>
-          key.startsWith('idle_builds:') &&
-          key !== CACHE_KEYS.idleBuildsListKey,
-      );
-      const developmentKeys = allKeys.filter((key) =>
-        key.startsWith('development:'),
-      );
-      const otherKeys = allKeys.filter(
-        (key) =>
-          !key.startsWith('active_build:') &&
-          !(key.includes(':builds') && key.startsWith('proto:')) &&
-          !(key.includes(':current') && key.startsWith('proto:')) &&
-          !key.startsWith('idle_builds:') &&
-          !key.startsWith('development:'),
-      );
+      const rawStats = await getCacheStats();
 
       const stats = {
-        totalKeys: allKeys.length,
-        activeBuilds: activeBuildKeys.length,
-        prototypeBuilds: prototypeBuildKeys.length,
-        currentBuilds: currentBuildKeys.length,
-        idleBuilds: idleBuildKeys.length,
-        developmentKeys: developmentKeys.length,
+        totalKeys:
+          rawStats.activeBuilds +
+          rawStats.idleContainers +
+          rawStats.devBuilds,
+        activeBuilds: rawStats.activeBuilds,
+        prototypeBuilds: 0,
+        currentBuilds: 0,
+        idleBuilds: rawStats.idleContainers,
+        developmentKeys: rawStats.devBuilds,
         keyBreakdown: {
-          'active_build:*': activeBuildKeys.length,
-          'proto:*:builds': prototypeBuildKeys.length,
-          'proto:*:current': currentBuildKeys.length,
-          'idle_builds:*': idleBuildKeys.length,
-          'development:*': developmentKeys.length,
-          other: otherKeys.length,
+          'active_build:*': rawStats.activeBuilds,
+          'proto:*:builds': 0,
+          'proto:*:current': 0,
+          'idle_builds:*': rawStats.idleContainers,
+          'development:*': rawStats.devBuilds,
+          other: 0,
         },
         sampleKeys: {
-          activeBuild: activeBuildKeys.slice(0, 5),
-          prototypeBuild: prototypeBuildKeys.slice(0, 5),
-          currentBuild: currentBuildKeys.slice(0, 5),
-          idleBuild: idleBuildKeys.slice(0, 5),
-          development: developmentKeys.slice(0, 5),
-          other: otherKeys.slice(0, 5),
+          activeBuild: [] as string[],
+          prototypeBuild: [] as string[],
+          currentBuild: [] as string[],
+          idleBuild: [] as string[],
+          development: [] as string[],
+          other: [] as string[],
         },
       };
 
@@ -544,136 +516,34 @@ export class InternalCacheManagementService {
 
     try {
       // Get current build ID
-      const currentBuildId = await this.cache.get(
-        CACHE_KEYS.protoCurrentBuild(prototypeId),
-      );
+      const currentBuildId = await getCurrentBuildId(prototypeId);
 
-      // Get ALL active builds for this prototype by scanning for build IDs that contain the prototype ID
-      const allActiveBuilds: Array<{
-        buildId: string;
-        activeBuild: ActiveBuild;
-        isCurrent: boolean;
-      }> = [];
-
-      // Scan all active_build:* keys to find ones for this prototype
-      const allActiveBuildKeys = await this.scanAllKeys(request.log2);
-      const prototypeActiveBuildKeys = allActiveBuildKeys.filter(
-        (key) =>
-          key.startsWith('active_build:') &&
-          key.includes(`build_${prototypeId}_`),
-      );
+      // Get ALL active builds for this prototype
+      const activeBuildsRaw = await getActiveBuildsForPrototype(prototypeId);
 
       request.log2.consoleLogDevOnly(
         'info',
-        'Found active build keys for prototype',
+        'Found active builds for prototype',
         {
           prototypeId,
-          foundKeys: prototypeActiveBuildKeys.length,
-          keys: prototypeActiveBuildKeys,
+          foundBuilds: activeBuildsRaw.length,
         },
       );
 
-      // Get the data for each active build
-      for (const buildKey of prototypeActiveBuildKeys) {
-        try {
-          const activeBuild = await this.hgetallAsActiveBuild(buildKey);
-          if (activeBuild) {
-            if (isActiveBuildType(activeBuild)) {
-              const buildId = buildKey.replace('active_build:', '');
-              allActiveBuilds.push({
-                buildId,
-                activeBuild,
-                isCurrent: buildId === currentBuildId,
-              });
-            } else {
-              request.log2.warn('Invalid active build data found in cache', {
-                prototypeId,
-                buildKey,
-              });
-            }
-          }
-        } catch (error) {
-          request.log2.warn('Failed to parse active build data', {
-            prototypeId,
-            buildKey,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
+      // Map to the existing response format
+      const allActiveBuilds = activeBuildsRaw.map((entry) => ({
+        buildId: entry.buildId,
+        activeBuild: entry.build,
+        isCurrent: entry.isCurrent,
+      }));
 
-      // Get all builds for this prototype from the ZSET
-      const allBuilds: { buildId: string; timestamp: number }[] = [];
-      try {
-        const allBuildsResult = await this.cache.customCommand([
-          'ZRANGE',
-          CACHE_KEYS.protoBuilds(prototypeId),
-          '0',
-          '-1',
-          'WITHSCORES',
-        ]);
-
-        if (Array.isArray(allBuildsResult)) {
-          // ZRANGE WITHSCORES returns [member1, score1, member2, score2, ...]
-          for (let i = 0; i < allBuildsResult.length; i += 2) {
-            if (i + 1 < allBuildsResult.length) {
-              const buildIdRaw = allBuildsResult[i];
-              const timestampRaw = allBuildsResult[i + 1];
-
-              // Handle both simple string/number responses and complex object responses
-              const buildId =
-                typeof buildIdRaw === 'object' &&
-                buildIdRaw !== null &&
-                'key' in buildIdRaw
-                  ? String((buildIdRaw as { key: string }).key)
-                  : String(buildIdRaw);
-
-              const timestampValue =
-                typeof timestampRaw === 'object' &&
-                timestampRaw !== null &&
-                'value' in timestampRaw
-                  ? (timestampRaw as { value: number }).value
-                  : timestampRaw;
-
-              const timestamp = parseFloat(String(timestampValue));
-
-              if (!isNaN(timestamp)) {
-                allBuilds.push({
-                  buildId,
-                  timestamp,
-                });
-              } else {
-                request.log2.warn('Invalid timestamp found in builds ZSET', {
-                  prototypeId,
-                  buildId,
-                  timestampRaw,
-                  parsedTimestamp: timestamp,
-                });
-              }
-            }
-          }
-        }
-      } catch (error) {
-        request.log2.warn(
-          'Failed to fetch builds ZSET, continuing without build history',
-          {
-            prototypeId,
-            error: error instanceof Error ? error.message : String(error),
-          },
-        );
-      }
-
-      // Sort by timestamp descending (newest first)
-      allBuilds.sort((a, b) => b.timestamp - a.timestamp);
-
-      // Sort active builds by last_touched descending (most recent first)
-      allActiveBuilds.sort(
-        (a, b) => b.activeBuild.last_touched - a.activeBuild.last_touched,
-      );
+      // Get build history
+      const buildHistory = await getBuildHistory(prototypeId);
 
       // If no current build and no builds in history and no active builds, return 404-like response but with 200 status
       if (
         !currentBuildId &&
-        allBuilds.length === 0 &&
+        buildHistory.length === 0 &&
         allActiveBuilds.length === 0
       ) {
         request.log2.consoleLogDevOnly(
@@ -702,7 +572,7 @@ export class InternalCacheManagementService {
           prototypeId,
           currentBuildId,
           totalActiveBuilds: allActiveBuilds.length,
-          totalBuildsInHistory: allBuilds.length,
+          totalBuildsInHistory: buildHistory.length,
         },
       );
 
@@ -711,7 +581,7 @@ export class InternalCacheManagementService {
         prototypeId,
         currentBuildId: currentBuildId || null,
         activeBuilds: allActiveBuilds,
-        buildHistory: allBuilds,
+        buildHistory,
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
@@ -725,31 +595,6 @@ export class InternalCacheManagementService {
         message: `Failed to get prototype build data: ${e.message}`,
       });
     }
-  }
-
-  // Helper method to scan all keys in the cache
-  private async scanAllKeys(log2: SystemLogger): Promise<string[]> {
-    const keys: string[] = [];
-    let cursor = '0';
-
-    do {
-      try {
-        const result = (await this.cache.customCommand([
-          'SCAN',
-          cursor,
-          'COUNT',
-          '1000',
-        ])) as [string, string[]];
-
-        cursor = result[0];
-        keys.push(...result[1]);
-      } catch (error) {
-        log2.error(error, 'Error scanning keys');
-        break;
-      }
-    } while (cursor !== '0');
-
-    return keys;
   }
 
   // Route handler for clearing development cache keys
@@ -767,35 +612,15 @@ export class InternalCacheManagementService {
     );
 
     try {
-      // Scan for all development:* keys
-      const allKeys = await this.scanAllKeys(request.log2);
-      const developmentKeys = allKeys.filter((key) =>
-        key.startsWith('development:'),
-      );
+      const deletedCount = await deleteAllDevBuilds();
 
       request.log2.consoleLogDevOnly(
         'info',
         'Found development keys to delete',
         {
-          count: developmentKeys.length,
+          count: deletedCount,
         },
       );
-
-      // Delete development keys one by one to avoid cross-slot errors in Redis Cluster
-      let deletedCount = 0;
-      if (developmentKeys.length > 0) {
-        for (const key of developmentKeys) {
-          try {
-            await this.cache.del([key]);
-            deletedCount++;
-          } catch (error) {
-            request.log2.warn('Failed to delete development key', {
-              key,
-              error: error instanceof Error ? error.message : String(error),
-            });
-          }
-        }
-      }
 
       const duration = Date.now() - startTime;
       request.log2.consoleLogDevOnly(
@@ -842,11 +667,7 @@ export class InternalCacheManagementService {
     );
 
     try {
-      // Get the development cache key for this prototype
-      const devKey = CACHE_KEYS.protoDev(prototypeId);
-
-      // Delete the key
-      const deleted = await this.cache.del([devKey]);
+      const deleted = await deleteDevBuild(prototypeId);
 
       const duration = Date.now() - startTime;
       request.log2.consoleLogDevOnly(
@@ -854,19 +675,18 @@ export class InternalCacheManagementService {
         'Development cache cleared for prototype',
         {
           prototypeId,
-          deleted: deleted > 0,
+          deleted,
           durationMs: duration,
         },
       );
 
       return reply.status(HTTP_STATUS.OK).send({
         success: true,
-        message:
-          deleted > 0
-            ? `Development cache cleared for prototype ${prototypeId}`
-            : `No development cache found for prototype ${prototypeId}`,
+        message: deleted
+          ? `Development cache cleared for prototype ${prototypeId}`
+          : `No development cache found for prototype ${prototypeId}`,
         prototypeId,
-        deleted: deleted > 0,
+        deleted,
         timestamp: new Date().toISOString(),
         durationMs: duration,
       });
@@ -881,37 +701,5 @@ export class InternalCacheManagementService {
         message: `Failed to clear development cache for prototype: ${e.message}`,
       });
     }
-  }
-
-  private async hgetallAsActiveBuild(key: string): Promise<ActiveBuild | null> {
-    const raw = await this.cache.hgetall(key);
-
-    if (!raw || raw.length === 0) return null;
-
-    const obj = Object.fromEntries(
-      raw.map(
-        (e: {
-          field: { toString(): string };
-          value: { toString(): string };
-        }) => [e.field.toString(), e.value.toString()],
-      ),
-    ) as Record<string, string>;
-
-    // Handle missing fields gracefully
-    if (!obj.fargate_task_arn || !obj.status || !obj.last_touched) {
-      return null;
-    }
-
-    return {
-      fargate_task_arn: obj.fargate_task_arn,
-      fargate_private_ip: obj.fargate_private_ip || '',
-      url: obj.url || '',
-      status: obj.status as ActiveBuild['status'],
-      last_touched: parseInt(obj.last_touched, 10),
-      terminal_tunnel_id: obj.terminal_tunnel_id || '',
-      terminal_tunnel_hostname: obj.terminal_tunnel_hostname || '',
-      orchestration_token: obj.orchestration_token || '',
-      clean_attempts: parseInt(obj.clean_attempts || '0', 10),
-    };
   }
 }
