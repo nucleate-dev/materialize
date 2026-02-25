@@ -252,7 +252,9 @@ export async function handleAllocateImpl(
       "not_started";
     let tunnelMessage: string | undefined;
     // 6. CLOUDFLARE TUNNEL:
-    if (process.env.FARGATE_DEV_MODE !== "true") {
+    // CLOUDFLARE TUNNEL DISABLED - skip tunnel setup when no token is provided (using public IP directly)
+    // Was: if (process.env.FARGATE_DEV_MODE !== "true") {
+    if (process.env.FARGATE_DEV_MODE !== "true" && cloudflare_credentials.cloudflare_tunnel_token) {
       request.log2.consoleLogDevOnly(
         "info",
         "Starting Cloudflare tunnel setup",

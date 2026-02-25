@@ -92,10 +92,12 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           });
           resolve({
             data: {
-              tunnel_url:
-                process.env.FARGATE_DEV_MODE === "true"
-                  ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
-                  : `${this.configuredTunnelUrl}`,
+              // CLOUDFLARE TUNNEL DISABLED - was:
+              // tunnel_url:
+              //   process.env.FARGATE_DEV_MODE === "true"
+              //     ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
+              //     : `${this.configuredTunnelUrl}`,
+              tunnel_url: `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`,
             },
             error: null,
           });

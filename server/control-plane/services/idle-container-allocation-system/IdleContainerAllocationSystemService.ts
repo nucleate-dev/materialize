@@ -35,9 +35,11 @@ import {
   updateBuildFields,
   updateBuildTunnelInfo,
 } from "../../utils/cacheInteractionUtils.js";
-import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
+// CLOUDFLARE TUNNEL DISABLED - import kept for potential re-enablement
+// import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
 import { getSubscriptionInfo } from "../../utils/subscriptionChecks.js";
-import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
+// CLOUDFLARE TUNNEL DISABLED - import kept for potential re-enablement
+// import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
 
@@ -47,7 +49,8 @@ export class IdleContainerAllocationSystemService {
   private readonly ecsClient: ECSClient;
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
-  private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
+  // CLOUDFLARE TUNNEL DISABLED - field kept for potential re-enablement
+  // private readonly cloudflareTunnelSystem: IdleCloudflareTunnelSystem;
   private readonly supabaseServiceRoleClient: SupabaseClient<Database>;
   private maintenanceTimer?: NodeJS.Timeout;
 
@@ -61,9 +64,10 @@ export class IdleContainerAllocationSystemService {
     this.log2 = opts.log2.child({
       route: "IdleContainerAllocationSystemService",
     });
-    this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
-      log2: this.log2,
-    });
+    // CLOUDFLARE TUNNEL DISABLED - kept for potential re-enablement
+    // this.cloudflareTunnelSystem = new IdleCloudflareTunnelSystem({
+    //   log2: this.log2,
+    // });
     this.supabaseServiceRoleClient = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -215,7 +219,7 @@ export class IdleContainerAllocationSystemService {
         "info",
         `[ContainerAlloc] Waiting for idle container ${taskArn} to finish creating`,
       );
-      privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+      privateIp = await this.waitForFargateTaskToBeReadyAndGetIP(
         taskArn,
       );
     } else if (taskData.status === "ready") {
@@ -302,7 +306,7 @@ export class IdleContainerAllocationSystemService {
     }
 
     // Wait for container to become ready
-    const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+    const privateIp = await this.waitForFargateTaskToBeReadyAndGetIP(
       taskArn,
     );
     if (!privateIp) {
@@ -378,7 +382,7 @@ export class IdleContainerAllocationSystemService {
         status: newBuildCacheData.status,
         last_touched: newBuildCacheData.last_touched,
       });
-      const privateIp = await this.waitForFargateTaskToBeReadyAndGetPrivateIP(
+      const privateIp = await this.waitForFargateTaskToBeReadyAndGetIP(
         taskArn,
       );
       if (!privateIp) {
@@ -449,11 +453,11 @@ export class IdleContainerAllocationSystemService {
     }
   }
 
-  // Return the Fargate private IP
-  private async waitForFargateTaskToBeReadyAndGetPrivateIP(
+  // Return the Fargate public IP (stored in fargate_private_ip field for backwards compat)
+  private async waitForFargateTaskToBeReadyAndGetIP(
     taskArn: string,
   ): Promise<string> {
-    // Wait for task to be running and get private IP
+    // Wait for task to be running and get public IP
     await waitUntilTasksRunning(
       {
         client: this.ecsClient,
@@ -474,10 +478,14 @@ export class IdleContainerAllocationSystemService {
       (detail) => detail.name === "networkInterfaceId",
     )?.value;
     if (!eni) return "";
-    const privateIpDetail = task?.attachments?.[0]?.details?.find(
-      (detail) => detail.name === "privateIPv4Address",
+    // CLOUDFLARE TUNNEL DISABLED - was privateIPv4Address, now using publicIPv4Address
+    // const privateIpDetail = task?.attachments?.[0]?.details?.find(
+    //   (detail) => detail.name === "privateIPv4Address",
+    // );
+    const publicIpDetail = task?.attachments?.[0]?.details?.find(
+      (detail) => detail.name === "publicIPv4Address",
     );
-    return privateIpDetail?.value || "";
+    return publicIpDetail?.value || "";
   }
 
   private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
@@ -614,38 +622,39 @@ export class IdleContainerAllocationSystemService {
       throw error;
     }
 
-    // Retrieve Cloudflare tunnel
-    let tunnelConfig;
-    try {
-      tunnelConfig = await this.cloudflareTunnelSystem
-        .retrieveIdleTunnelForAllocation(
-          prototypeId,
-        );
-    } catch (error) {
-      this.log2.error(
-        error,
-        `Failed to retrieve Cloudflare tunnel for prototype ${prototypeId}`,
-        {
-          prototypeId,
-        },
-      );
-      throw new Error(
-        `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
+    // CLOUDFLARE TUNNEL DISABLED - using public IP directly instead of Cloudflare tunnels
+    // let tunnelConfig;
+    // try {
+    //   tunnelConfig = await this.cloudflareTunnelSystem
+    //     .retrieveIdleTunnelForAllocation(
+    //       prototypeId,
+    //     );
+    // } catch (error) {
+    //   this.log2.error(
+    //     error,
+    //     `Failed to retrieve Cloudflare tunnel for prototype ${prototypeId}`,
+    //     {
+    //       prototypeId,
+    //     },
+    //   );
+    //   throw new Error(
+    //     `Failed to retrieve Cloudflare tunnel: ${error instanceof Error ? error.message : String(error)
+    //     }`,
+    //   );
+    // }
+    // this.log2.consoleLogDevOnly(
+    //   "debug",
+    //   "updating cache with cloudflare tunnel final Tunnel config",
+    //   {
+    //     tunnelId: tunnelConfig.tunnel_id,
+    //     hostname: tunnelConfig.hostname,
+    //     cnameTarget: tunnelConfig.cname_target,
+    //   },
+    // );
+    // const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
 
-    // Store tunnel info in cache with wss:// prefix
-    this.log2.consoleLogDevOnly(
-      "debug",
-      "updating cache with cloudflare tunnel final Tunnel config",
-      {
-        tunnelId: tunnelConfig.tunnel_id,
-        hostname: tunnelConfig.hostname,
-        cnameTarget: tunnelConfig.cname_target,
-      },
-    );
-    const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
+    // Use public IP directly for terminal hostname (like FARGATE_DEV_MODE)
+    const terminalHostname = `http://${info.privateIp}:3002`;
 
     // Generate orchestration token for authenticating container orchestration requests
     const orchestrationToken = randomBytes(32).toString("hex");
@@ -653,15 +662,14 @@ export class IdleContainerAllocationSystemService {
     try {
       await updateBuildTunnelInfo(
         buildId,
-        tunnelConfig.tunnel_id || "",
-        tunnelHostnameWithProtocol,
+        "", // no CF tunnel ID
+        terminalHostname,
         orchestrationToken,
       );
     } catch (error) {
       this.log2.error(error, "Failed to update build tunnel info in cache", {
         activeBuildKey,
-        tunnelId: tunnelConfig.tunnel_id,
-        tunnelHostname: tunnelHostnameWithProtocol,
+        terminalHostname,
       });
       throw new Error(
         `Failed to update tunnel info in cache: ${error instanceof Error ? error.message : String(error)
@@ -708,8 +716,11 @@ export class IdleContainerAllocationSystemService {
         userId: userId || "unknown",
       },
       cloudflare_credentials: {
-        cloudflare_tunnel_token: tunnelConfig.token || "",
-        cloudflare_tunnel_hostname: tunnelConfig.hostname ?? undefined,
+        // CLOUDFLARE TUNNEL DISABLED - was:
+        // cloudflare_tunnel_token: tunnelConfig.token || "",
+        // cloudflare_tunnel_hostname: tunnelConfig.hostname ?? undefined,
+        cloudflare_tunnel_token: "",
+        cloudflare_tunnel_hostname: `http://${info.privateIp}`,
       },
       keys: {
         orchestration_token: orchestrationToken,
@@ -746,22 +757,22 @@ export class IdleContainerAllocationSystemService {
         );
       }
     } catch (error) {
-      // clean up the tunnel if it was created, task will be cleaned up as the error propagates up the stack
-      if (tunnelConfig.tunnel_id) {
-        try {
-          await deleteCloudflareTunnel(
-            tunnelConfig.tunnel_id,
-            this.log2,
-            tunnelConfig.hostname || undefined,
-            this.supabaseServiceRoleClient,
-          );
-        } catch (error) {
-          this.log2.error(
-            error,
-            "Failed to delete Cloudflare tunnel after allocation failure",
-          );
-        }
-      }
+      // CLOUDFLARE TUNNEL DISABLED - tunnel cleanup commented out
+      // if (tunnelConfig.tunnel_id) {
+      //   try {
+      //     await deleteCloudflareTunnel(
+      //       tunnelConfig.tunnel_id,
+      //       this.log2,
+      //       tunnelConfig.hostname || undefined,
+      //       this.supabaseServiceRoleClient,
+      //     );
+      //   } catch (error) {
+      //     this.log2.error(
+      //       error,
+      //       "Failed to delete Cloudflare tunnel after allocation failure",
+      //     );
+      //   }
+      // }
       // Handle both axios errors and our thrown errors
       if (axios.isAxiosError(error)) {
         this.log2.error(
@@ -784,8 +795,11 @@ export class IdleContainerAllocationSystemService {
     }
 
     return {
-      terminalTunnelId: tunnelConfig.tunnel_id || "",
-      terminalTunnelHostname: tunnelHostnameWithProtocol,
+      // CLOUDFLARE TUNNEL DISABLED - was:
+      // terminalTunnelId: tunnelConfig.tunnel_id || "",
+      // terminalTunnelHostname: tunnelHostnameWithProtocol,
+      terminalTunnelId: "",
+      terminalTunnelHostname: terminalHostname,
       orchestrationToken: orchestrationToken,
     };
   }
