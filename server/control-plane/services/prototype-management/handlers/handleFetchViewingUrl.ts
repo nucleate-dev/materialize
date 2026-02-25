@@ -11,12 +11,11 @@ import {
   isRunningDevServer,
 } from "../../../utils/prototypeDevServerStatusUtils.js";
 import { getCloudfrontScreenshotUrl } from "../../cleanup/screenshotUtils.js";
-import { DispatcherService } from "../../dispatcher/DispatcherService.js";
+import { handleDispatchPrecheckImpl } from "../../../utils/dispatchPrecheckUtils.js";
 
 export default async function handleFetchViewingUrlImpl(
   request: FastifyRequest<{ Body: FetchViewingUrlRequestBody }>,
   reply: FastifyReply,
-  dispatcherService: DispatcherService,
 ): Promise<APIResponse<FetchViewingUrlSuccessResponse, StandardErrorResponse>> {
   try {
     // Extract validated body (validation handled by Fastify schema)
@@ -45,7 +44,7 @@ export default async function handleFetchViewingUrlImpl(
     if (authResult.canEdit && current_page === "edit") {
       try {
         // Fetch dispatch-precheck from control plane
-        const precheckResult = await dispatcherService.dispatchPrecheck(
+        const precheckResult = await handleDispatchPrecheckImpl(
           { prototype_id },
           token!,
           request.log2,

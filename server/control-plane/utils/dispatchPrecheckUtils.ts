@@ -4,20 +4,20 @@ import {
   DispatchPrecheckRequestBody,
   DispatchPrecheckSuccessResponse,
   StandardErrorResponse,
-} from "../../../types/PublicAPITypes.js";
-import { checkUserHasPrototypeEditAccess } from "../../../utils/prototypeAuth.js";
+} from "../types/PublicAPITypes.js";
+import { checkUserHasPrototypeEditAccess } from "./prototypeAuth.js";
 import {
   isActiveBuildType,
   S3_URL_TEMPLATE,
-} from "../../../types/InternalTypes.js";
+} from "../types/InternalTypes.js";
 import {
   getCurrentBuildForPrototype,
   getDevBuild,
-} from "../../../utils/cacheInteractionUtils.js";
+} from "./cacheInteractionUtils.js";
 import {
   isRunningDevServer,
-} from "../../../utils/prototypeDevServerStatusUtils.js";
-import { SystemLogger } from "../../../loggers/SystemLogger.js";
+} from "./prototypeDevServerStatusUtils.js";
+import { SystemLogger } from "../loggers/SystemLogger.js";
 
 export async function handleDispatchPrecheckImpl(
   body: DispatchPrecheckRequestBody,

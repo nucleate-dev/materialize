@@ -17,7 +17,6 @@ import { PostHogLogger } from "./loggers/PostHogLogger.js";
 import { genRequestIds, SystemLogger } from "./loggers/SystemLogger.js";
 import { CleanupService } from "./services/cleanup/CleanupService.js";
 import { DevelopmentServerService } from "./services/DevelopmentServerService.js";
-import { DispatcherService } from "./services/dispatcher/DispatcherService.js";
 import { GitHubIntegrationService } from "./services/connectors/github/GitHubIntegrationService.js";
 import { SupabaseIntegrationService } from "./services/connectors/supabase/SupabaseIntegrationService.js";
 import { ConvexIntegrationService } from "./services/connectors/convex/ConvexIntegrationService.js";
@@ -143,7 +142,6 @@ fastify.addHook("onClose", async () => {
   }
 });
 
-let dispatcherService: DispatcherService;
 let cleanupService: CleanupService;
 let idleContainerAllocationSystemService: IdleContainerAllocationSystemService;
 let stripeManagementService: StripeManagementService;
@@ -202,12 +200,6 @@ const start = async (): Promise<void> => {
         log2: baseLogger,
       });
 
-    // Create dispatcher service with initialized clients
-    dispatcherService = new DispatcherService(
-      idleContainerAllocationSystemService,
-      baseLogger,
-    );
-
     // Create stripe management service and register routes
     stripeManagementService = new StripeManagementService();
     stripeManagementService.registerRoutes(fastify);
@@ -223,13 +215,12 @@ const start = async (): Promise<void> => {
     // Create prototype management service and register routes
     prototypeManagementService = new PrototypeManagementService(
       s3Client,
-      dispatcherService,
       cleanupService,
     );
     prototypeManagementService.registerRoutes(fastify);
 
     // Create development server service and register routes
-    developmentServerService = new DevelopmentServerService(dispatcherService);
+    developmentServerService = new DevelopmentServerService(idleContainerAllocationSystemService);
     developmentServerService.registerRoutes(fastify);
 
     // Create orchestration service and register routes

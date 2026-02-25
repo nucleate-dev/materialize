@@ -16,7 +16,6 @@ import {
   PROTOTYPE_CREATION_SOURCES,
 } from "../../types/PublicAPITypes.js";
 import { CleanupService } from "../cleanup/CleanupService.js";
-import { DispatcherService } from "../dispatcher/DispatcherService.js";
 import { handleCreatePrototypeImpl } from "./handlers/handleCreatePrototype.js";
 import handleDeletePrototypeImpl from "./handlers/handleDeletePrototype.js";
 import handleFetchViewingUrlImpl from "./handlers/handleFetchViewingUrl.js";
@@ -27,16 +26,13 @@ export class PrototypeManagementService {
   private supabaseUrl: string;
   private supabaseAnonKey: string;
   private s3Client: S3Client;
-  private dispatcherService: DispatcherService;
   private cleanupService: CleanupService;
 
   constructor(
     s3Client: S3Client,
-    dispatcherService: DispatcherService,
     cleanupService: CleanupService,
   ) {
     this.s3Client = s3Client;
-    this.dispatcherService = dispatcherService;
     this.cleanupService = cleanupService;
 
     // Environment validation
@@ -141,7 +137,6 @@ export class PrototypeManagementService {
     return await handleFetchViewingUrlImpl(
       request,
       reply,
-      this.dispatcherService,
     );
   }
 
