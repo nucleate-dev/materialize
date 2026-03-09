@@ -873,13 +873,14 @@ export class IdleContainerAllocationSystemService {
         }
       }
 
-      // Launch new idle containers to replace the terminated ones (without waiting)
+      // Launch new idle containers based on the current max_idle_fargate_builds config
+      const maxIdleBuilds = await this.getMaxIdleBuilds();
       this.log2.consoleLogDevOnly(
         "info",
-        `Launching ${terminatedCount} new idle containers`,
+        `Launching ${maxIdleBuilds} new idle containers (max_idle_fargate_builds=${maxIdleBuilds})`,
       );
 
-      for (let i = 0; i < terminatedCount; i++) {
+      for (let i = 0; i < maxIdleBuilds; i++) {
         this.launchIdleContainer().catch((error) => {
           this.log2.error(
             error,
@@ -889,7 +890,7 @@ export class IdleContainerAllocationSystemService {
         });
       }
 
-      launchedCount = terminatedCount; // Initiated (not necessarily completed)
+      launchedCount = maxIdleBuilds; // Initiated (not necessarily completed)
 
       this.log2.consoleLogDevOnly(
         "info",
