@@ -135,7 +135,7 @@ fastify.get('/sse', async (request, reply) => {
           content: [
             {
               type: 'text',
-              text: `Invalid arguments: ${error.errors.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
+              text: `Invalid arguments: ${error.issues.map((e) => `${e.path.join('.')}: ${e.message}`).join(', ')}`,
             },
           ],
           isError: true,
@@ -200,96 +200,9 @@ fastify.post('/messages', async (request, reply) => {
   }
 });
 
-// Convert Zod schema to JSON Schema format
+// Convert Zod schema to JSON Schema format using zod v4 built-in
 function zodToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  if (schema instanceof z.ZodObject) {
-    const shape = schema._def.shape();
-    const properties: Record<string, unknown> = {};
-    const required: string[] = [];
-
-    for (const [key, value] of Object.entries(shape)) {
-      const zodValue = value as z.ZodTypeAny;
-      properties[key] = zodFieldToJsonSchema(zodValue);
-
-      if (
-        !(zodValue instanceof z.ZodOptional) &&
-        !(zodValue instanceof z.ZodDefault)
-      ) {
-        required.push(key);
-      }
-    }
-
-    return {
-      type: 'object',
-      properties,
-      required: required.length > 0 ? required : undefined,
-    };
-  }
-
-  return zodFieldToJsonSchema(schema);
-}
-
-function zodFieldToJsonSchema(schema: z.ZodTypeAny): Record<string, unknown> {
-  const description = schema._def.description;
-  const base: Record<string, unknown> = {};
-
-  if (description) {
-    base.description = description;
-  }
-
-  if (schema instanceof z.ZodOptional) {
-    return { ...base, ...zodFieldToJsonSchema(schema._def.innerType) };
-  }
-
-  if (schema instanceof z.ZodDefault) {
-    const inner = zodFieldToJsonSchema(schema._def.innerType);
-    return { ...base, ...inner, default: schema._def.defaultValue() };
-  }
-
-  if (schema instanceof z.ZodString) {
-    const result: Record<string, unknown> = { ...base, type: 'string' };
-    const checks = schema._def.checks || [];
-    for (const check of checks) {
-      if (check.kind === 'min') result.minLength = check.value;
-      if (check.kind === 'max') result.maxLength = check.value;
-      if (check.kind === 'uuid') result.format = 'uuid';
-      if (check.kind === 'regex') result.pattern = check.regex.source;
-    }
-    return result;
-  }
-
-  if (schema instanceof z.ZodNumber) {
-    const result: Record<string, unknown> = { ...base, type: 'number' };
-    const checks = schema._def.checks || [];
-    for (const check of checks) {
-      if (check.kind === 'min') result.minimum = check.value;
-      if (check.kind === 'max') result.maximum = check.value;
-      if (check.kind === 'int') result.type = 'integer';
-    }
-    return result;
-  }
-
-  if (schema instanceof z.ZodBoolean) {
-    return { ...base, type: 'boolean' };
-  }
-
-  if (schema instanceof z.ZodEnum) {
-    return { ...base, type: 'string', enum: schema._def.values };
-  }
-
-  if (schema instanceof z.ZodArray) {
-    return {
-      ...base,
-      type: 'array',
-      items: zodFieldToJsonSchema(schema._def.type),
-    };
-  }
-
-  if (schema instanceof z.ZodObject) {
-    return { ...base, ...zodToJsonSchema(schema) };
-  }
-
-  return { ...base, type: 'string' };
+  return z.toJSONSchema(schema) as Record<string, unknown>;
 }
 
 // Start server

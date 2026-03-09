@@ -1220,7 +1220,7 @@ export class ChatQueryHandler implements ChatEngine {
           };
         }
 
-        const normalizedToolInput = permission.updatedInput ?? input.tool_input;
+        const normalizedToolInput = (permission.updatedInput ?? input.tool_input) as Record<string, unknown> | undefined;
 
         // Flush any accumulated assistant message buffer BEFORE persisting tool
         if (flushAssistantBuffer) {
