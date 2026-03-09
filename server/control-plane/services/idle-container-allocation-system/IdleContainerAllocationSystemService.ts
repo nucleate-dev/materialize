@@ -6,6 +6,10 @@ import {
   waitUntilTasksRunning,
 } from "@aws-sdk/client-ecs";
 import {
+  EC2Client,
+  DescribeNetworkInterfacesCommand,
+} from "@aws-sdk/client-ec2";
+import {
   AssumeRoleCommand,
   STSClient,
 } from "@aws-sdk/client-sts";
@@ -46,6 +50,7 @@ import { Database } from "../../types/supabase.js";
 
 export class IdleContainerAllocationSystemService {
   private readonly ecsClient: ECSClient;
+  private readonly ec2Client: EC2Client;
   private readonly log2: SystemLogger;
   private readonly stsClient: STSClient;
   // CLOUDFLARE TUNNEL DISABLED - field kept for potential re-enablement
@@ -59,6 +64,7 @@ export class IdleContainerAllocationSystemService {
     log2: SystemLogger;
   }) {
     this.ecsClient = opts.ecsClient;
+    this.ec2Client = new EC2Client({ region: process.env.AWS_REGION || "us-east-2" });
     this.stsClient = opts.stsClient;
     this.log2 = opts.log2.child({
       route: "IdleContainerAllocationSystemService",
@@ -464,7 +470,7 @@ export class IdleContainerAllocationSystemService {
   private async waitForFargateTaskToBeReadyAndGetIP(
     taskArn: string,
   ): Promise<string> {
-    // Wait for task to be running and get public IP
+    // Wait for task to be running
     await waitUntilTasksRunning(
       {
         client: this.ecsClient,
@@ -485,14 +491,16 @@ export class IdleContainerAllocationSystemService {
       (detail) => detail.name === "networkInterfaceId",
     )?.value;
     if (!eni) return "";
-    // CLOUDFLARE TUNNEL DISABLED - was privateIPv4Address, now using publicIPv4Address
-    // const privateIpDetail = task?.attachments?.[0]?.details?.find(
-    //   (detail) => detail.name === "privateIPv4Address",
-    // );
-    const publicIpDetail = task?.attachments?.[0]?.details?.find(
-      (detail) => detail.name === "publicIPv4Address",
+
+    // ECS DescribeTasks doesn't return the public IP in attachment details.
+    // We need to query the ENI via EC2 to get the public IP.
+    const describeEniResponse = await this.ec2Client.send(
+      new DescribeNetworkInterfacesCommand({
+        NetworkInterfaceIds: [eni],
+      }),
     );
-    return publicIpDetail?.value || "";
+    const publicIp = describeEniResponse.NetworkInterfaces?.[0]?.Association?.PublicIp;
+    return publicIp || "";
   }
 
   private getFargateRunTaskCommandConfiguration(): RunTaskCommandInput {
