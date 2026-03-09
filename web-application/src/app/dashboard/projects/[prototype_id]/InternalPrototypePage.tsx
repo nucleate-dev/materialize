@@ -114,7 +114,7 @@ export default function InternalPrototypePage() {
   const isFreePlan = userPlan === "free";
   const { activeTeam, currentUserMembership } = useActiveTeam();
   const activeTeamId = activeTeam?.id;
-  const params = useParams<{ prototype_id: string; }>();
+  const params = useParams<{ prototype_id: string }>();
   const prototypeId = params?.prototype_id;
   const logger = useProductLogger();
   const setSidebarOpen = useSetAtom(sidebarOpenAtom);
@@ -266,7 +266,7 @@ export default function InternalPrototypePage() {
   >(new Map());
 
   const handleClaudeCodeMessage = useCallback(
-    (message: { type: string; data: unknown; }) => {
+    (message: { type: string; data: unknown }) => {
       const parsedMessage = message as ChatServerMessage;
       claudeCodeWSMessageHandlers.current.forEach((handler) =>
         handler(parsedMessage),
@@ -337,8 +337,10 @@ export default function InternalPrototypePage() {
           .eq("id", prototypeId)
           .single();
 
-        const currentContext = (currentPrototype?.prototype_context as PrototypeContextData) || {};
-        const currentCanvas: Partial<CanvasStateData> = currentContext.canvas || {};
+        const currentContext =
+          (currentPrototype?.prototype_context as PrototypeContextData) || {};
+        const currentCanvas: Partial<CanvasStateData> =
+          currentContext.canvas || {};
 
         const contextToSave = {
           canvas: {
@@ -348,8 +350,14 @@ export default function InternalPrototypePage() {
             camera: state.camera,
             previewMode: state.previewMode,
             lastModified: state.lastModified,
-            webScreens: webScreensState.length > 0 ? webScreensState.map(s => ({ id: s.id, path: s.path })) : currentCanvas.webScreens,
-            mobileScreens: mobileScreensState.length > 0 ? mobileScreensState.map(s => ({ id: s.id, path: s.path })) : currentCanvas.mobileScreens,
+            webScreens:
+              webScreensState.length > 0
+                ? webScreensState.map((s) => ({ id: s.id, path: s.path }))
+                : currentCanvas.webScreens,
+            mobileScreens:
+              mobileScreensState.length > 0
+                ? mobileScreensState.map((s) => ({ id: s.id, path: s.path }))
+                : currentCanvas.mobileScreens,
           },
         };
 
@@ -411,18 +419,22 @@ export default function InternalPrototypePage() {
         .eq("id", prototypeId)
         .single();
 
-      const currentContext = (currentPrototype?.prototype_context as PrototypeContextData) || {};
-      const currentCanvas: Partial<CanvasStateData> = currentContext.canvas || {};
+      const currentContext =
+        (currentPrototype?.prototype_context as PrototypeContextData) || {};
+      const currentCanvas: Partial<CanvasStateData> =
+        currentContext.canvas || {};
 
       const contextToSave = {
         canvas: {
           ...currentCanvas,
-          mobileScreens: mobileScreensState.length > 0
-            ? mobileScreensState.map(s => ({ id: s.id, path: s.path }))
-            : currentCanvas.mobileScreens,
-          webScreens: webScreensState.length > 0
-            ? webScreensState.map(s => ({ id: s.id, path: s.path }))
-            : currentCanvas.webScreens,
+          mobileScreens:
+            mobileScreensState.length > 0
+              ? mobileScreensState.map((s) => ({ id: s.id, path: s.path }))
+              : currentCanvas.mobileScreens,
+          webScreens:
+            webScreensState.length > 0
+              ? webScreensState.map((s) => ({ id: s.id, path: s.path }))
+              : currentCanvas.webScreens,
           previewMode,
         },
       };
@@ -458,8 +470,8 @@ export default function InternalPrototypePage() {
   const designSystemBadgeLabel = DESIGN_STYLE_LABELS[currentDesignStyle];
   const currentCustomDesignSystemName = currentCustomDesignSystemId
     ? designSystems.find(
-      (system) => String(system.id) === currentCustomDesignSystemId,
-    )?.name || "Custom design system"
+        (system) => String(system.id) === currentCustomDesignSystemId,
+      )?.name || "Custom design system"
     : undefined;
   const canEditPrototype = Boolean(
     prototype && user && prototype.owner_id === user?.id,
@@ -735,10 +747,11 @@ export default function InternalPrototypePage() {
           setBaseTunnelUrl(fetchViewData.data.terminal_url);
         }
         if (
-          fetchViewData.data.source === "editable_instance" &&
-          (fetchViewData.data.viewing_url?.includes("ngrok") ||
-            fetchViewData.data.viewing_url?.includes("sandbox") ||
-            fetchViewData.data.viewing_url?.includes("19006"))
+          (fetchViewData.data.source === "editable_instance" &&
+            (fetchViewData.data.viewing_url?.includes("ngrok") ||
+              fetchViewData.data.viewing_url?.includes("sandbox") ||
+              fetchViewData.data.viewing_url?.includes("19006"))) ||
+          fetchViewData.data.viewing_url?.includes("3002")
         ) {
           setCurrentRenderStatus("Connecting..");
           setShouldTriggerInitialFetch(false);
@@ -1001,10 +1014,10 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            design_style: dialogDesignStyle,
-            custom_design_system: nextCustomDesignSystem,
-          }
+              ...prev,
+              design_style: dialogDesignStyle,
+              custom_design_system: nextCustomDesignSystem,
+            }
           : prev,
       );
       handleDesignSystemDialogOpenChange(false);
@@ -1108,11 +1121,11 @@ export default function InternalPrototypePage() {
       setPrototype((prev) =>
         prev
           ? {
-            ...prev,
-            slug: result.slug,
-            is_deployed: true,
-            visibility: result.visibility,
-          }
+              ...prev,
+              slug: result.slug,
+              is_deployed: true,
+              visibility: result.visibility,
+            }
           : prev,
       );
       setIsPublic(result.visibility === "PUBLIC");
@@ -1331,7 +1344,7 @@ Provide actionable recommendations.`,
         });
 
         // Collect code files to upsert
-        const filesToUpsert: Array<{ name: string; content: string; }> = [];
+        const filesToUpsert: Array<{ name: string; content: string }> = [];
         for (const upload of uploads.filter((u) => u.kind === "code")) {
           const fileContents = await upload.file.text();
           filesToUpsert.push({ name: upload.path, content: fileContents });
@@ -1418,10 +1431,11 @@ Provide actionable recommendations.`,
         {/* Left Panel - Claude Code */}
         {!isChatCollapsed && (
           <div
-            className={`${isMobile
-              ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
-              : "flex"
-              } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+            className={`${
+              isMobile
+                ? `${activePanel === "chat" ? "flex" : "hidden"} w-full h-full`
+                : "flex"
+            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
             style={
               isMobile
                 ? { height: "100%" }
@@ -1449,8 +1463,10 @@ Provide actionable recommendations.`,
                 layoutMode={canvasState?.layoutMode}
                 screenOrder={canvasState?.screenOrder}
                 focusedScreenId={
-                  (previewMode === "mobile" ? mobileScreensState : webScreensState)
-                    ?.find((s) => s.path === currentViewingPath)?.id
+                  (previewMode === "mobile"
+                    ? mobileScreensState
+                    : webScreensState
+                  )?.find((s) => s.path === currentViewingPath)?.id
                 }
                 onScreenUpdate={handleScreenUpdate}
                 fileSystem={fileSystem}
@@ -1496,17 +1512,18 @@ Provide actionable recommendations.`,
 
         {/* Right Panel - Preview/Code Toggle */}
         <div
-          className={`${isMobile
-            ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
-            : "flex"
-            } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
+          className={`${
+            isMobile
+              ? `${activePanel === "preview" ? "flex" : "hidden"} w-full h-full`
+              : "flex"
+          } flex-col relative z-10 bg-[#0B0C0E] overflow-hidden`}
           style={
             isMobile
               ? {}
               : {
-                width: isChatCollapsed ? "100%" : `${100 - leftPanelWidth}%`,
-                minWidth: "320px",
-              }
+                  width: isChatCollapsed ? "100%" : `${100 - leftPanelWidth}%`,
+                  minWidth: "320px",
+                }
           }
         >
           <div className="flex-1 min-h-0 h-full">

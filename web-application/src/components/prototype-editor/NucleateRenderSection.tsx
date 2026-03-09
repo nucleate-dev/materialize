@@ -115,7 +115,12 @@ import { CloudIntegrationsDropdown } from "./CloudIntegrationsDropdown";
 import { ViewOnDeviceModal } from "./ViewOnDeviceModal";
 
 // Import PreviewCanvas for infinite canvas mode
-import type { AIActionType, CanvasStateData, GlobalAIAction, PreviewCanvasRef } from "./canvas";
+import type {
+  AIActionType,
+  CanvasStateData,
+  GlobalAIAction,
+  PreviewCanvasRef,
+} from "./canvas";
 import { PreviewCanvas } from "./canvas";
 
 export interface MobileScreenConfig {
@@ -289,9 +294,17 @@ interface MaterializeRenderSectionProps {
   // Allows consumers to hide the toolbar (e.g., readonly public viewers)
   showToolbar?: boolean;
   // Screen AI action callback - sends AI action requests to parent (e.g., chat panel)
-  onScreenAIAction?: (screenId: number, path: string, action: AIActionType, screenshotDataUrl?: string) => void;
+  onScreenAIAction?: (
+    screenId: number,
+    path: string,
+    action: AIActionType,
+    screenshotDataUrl?: string,
+  ) => void;
   // Global AI action callback - canvas-wide actions like PRD generation
-  onGlobalAIAction?: (action: GlobalAIAction, screenshotDataUrls?: string[]) => void;
+  onGlobalAIAction?: (
+    action: GlobalAIAction,
+    screenshotDataUrls?: string[],
+  ) => void;
   // Callback to open team settings dialog (for Supabase integration)
   onOpenTeamSettings?: (tab: "supabase-backend") => void;
 }
@@ -455,9 +468,9 @@ const MaterializeRenderSection = forwardRef<
     // Layout mode state: "grid" = standard layout (Regular Mode), "freeform" = infinite canvas (Canvas Mode)
     // This is only relevant when isCanvasPreviewEnabled is true
     // Uses wire format values for consistency with persistence and MCP tools
-    const [canvasLayoutMode, setCanvasLayoutMode] = useState<"grid" | "freeform">(
-      initialCanvasState?.layoutMode === "freeform" ? "freeform" : "grid"
-    );
+    const [canvasLayoutMode, setCanvasLayoutMode] = useState<
+      "grid" | "freeform"
+    >(initialCanvasState?.layoutMode === "freeform" ? "freeform" : "grid");
 
     // Canvas ref for infinite canvas mode
     const canvasRef = useRef<PreviewCanvasRef>(null);
@@ -735,7 +748,7 @@ const MaterializeRenderSection = forwardRef<
     );
     const [tempPath, setTempPath] = useState<string>("");
     const [routeSuggestions, setRouteSuggestions] = useState<
-      Array<{ route: string; group?: string; }>
+      Array<{ route: string; group?: string }>
     >([]);
     // Allow screen editing in public view if onScreensChange or onWebScreensChange is provided
     const canEditScreensInPublicView =
@@ -1163,7 +1176,7 @@ const MaterializeRenderSection = forwardRef<
     const availableRoutes = React.useMemo(() => {
       if (!files) return [];
 
-      const routes: Array<{ route: string; group?: string; }> = [];
+      const routes: Array<{ route: string; group?: string }> = [];
       Object.keys(files).forEach((filePath) => {
         // Look for files in app/ directory that could be routes
         if (filePath.startsWith("app/")) {
@@ -1336,7 +1349,11 @@ const MaterializeRenderSection = forwardRef<
           }
 
           // Use canvas ref if in freeform/canvas mode (infinite canvas)
-          if (isCanvasPreviewEnabled && canvasLayoutMode === "freeform" && canvasRef.current) {
+          if (
+            isCanvasPreviewEnabled &&
+            canvasLayoutMode === "freeform" &&
+            canvasRef.current
+          ) {
             switch (data.action) {
               case "add":
                 if (data.path) {
@@ -1978,6 +1995,7 @@ const MaterializeRenderSection = forwardRef<
         viewing_url.includes("ngrok") ||
         viewing_url.includes("tunnel") ||
         viewing_url.includes("19006") ||
+        viewing_url.includes("3002") ||
         viewing_url.includes("sandbox.nucleate.dev");
       if (isDevServer) onRenderStatusChange("Connected");
     }, [viewing_url, onRenderStatusChange]);
@@ -1993,7 +2011,7 @@ const MaterializeRenderSection = forwardRef<
       async (screenId: number, path: string) => {
         // Find the iframe element for this screen
         const iframe = document.querySelector(
-          `iframe[data-screen-id="${screenId}"]`
+          `iframe[data-screen-id="${screenId}"]`,
         ) as HTMLIFrameElement | null;
 
         if (!iframe) {
@@ -2035,7 +2053,7 @@ const MaterializeRenderSection = forwardRef<
           toast.error("Failed to take screenshot");
         }
       },
-      [sandbox_url, viewing_url]
+      [sandbox_url, viewing_url],
     );
 
     const handleScreenClone = useCallback(
@@ -2056,7 +2074,7 @@ const MaterializeRenderSection = forwardRef<
           toast.success("Screen cloned");
         }
       },
-      [previewMode, mobileScreens.length, webScreens.length]
+      [previewMode, mobileScreens.length, webScreens.length],
     );
 
     const handleScreenAIAction = useCallback(
@@ -2097,7 +2115,7 @@ const MaterializeRenderSection = forwardRef<
           });
         }
       },
-      [sandbox_url, onScreenAIAction]
+      [sandbox_url, onScreenAIAction],
     );
 
     const handleGlobalAIAction = useCallback(
@@ -2125,7 +2143,9 @@ const MaterializeRenderSection = forwardRef<
             });
 
             const results = await Promise.all(screenshotPromises);
-            screenshotDataUrls = results.filter((url): url is string => url !== null);
+            screenshotDataUrls = results.filter(
+              (url): url is string => url !== null,
+            );
           } catch {
             // Continue without screenshots
           }
@@ -2145,7 +2165,7 @@ const MaterializeRenderSection = forwardRef<
           });
         }
       },
-      [sandbox_url, previewMode, webScreens, mobileScreens, onGlobalAIAction]
+      [sandbox_url, previewMode, webScreens, mobileScreens, onGlobalAIAction],
     );
 
     // Start loading when viewing_url changes
@@ -2158,6 +2178,7 @@ const MaterializeRenderSection = forwardRef<
         viewing_url.includes("ngrok") ||
         viewing_url.includes("tunnel") ||
         viewing_url.includes("19006") ||
+        viewing_url.includes("3002") ||
         viewing_url.includes("sandbox.nucleate.dev");
       if (isDevServer) {
         onRenderStatusChange("Connecting..");
@@ -2285,7 +2306,7 @@ const MaterializeRenderSection = forwardRef<
     };
 
     // Connection loading overlay for iframe
-    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionLoadingOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-border shadow-2xl">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3 text-muted-foreground" />
@@ -2302,7 +2323,7 @@ const MaterializeRenderSection = forwardRef<
     );
 
     // Error overlay for iframe
-    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode; }) => (
+    const ConnectionErrorOverlay = ({ mode }: { mode: PreviewMode }) => (
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
         <div className="text-center bg-accent p-6 rounded-xl border border-red-500/20 shadow-2xl">
           <div className="w-8 h-8 mx-auto mb-3 text-red-400 bg-red-400/10 rounded-full flex items-center justify-center">
@@ -2504,7 +2525,10 @@ const MaterializeRenderSection = forwardRef<
                                         <MoreVertical className="w-3 h-3" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                                    <DropdownMenuContent
+                                      align="end"
+                                      className="w-52 bg-accent border-border text-foreground"
+                                    >
                                       <DropdownMenuItem
                                         onClick={() => refreshScreen(screen.id)}
                                         className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
@@ -2514,21 +2538,39 @@ const MaterializeRenderSection = forwardRef<
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-border" />
                                       <DropdownMenuItem
-                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                        onClick={() =>
+                                          handleScreenAIAction(
+                                            screen.id,
+                                            screen.path,
+                                            "redesign",
+                                          )
+                                        }
                                         className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                       >
                                         <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
                                         Redesign this screen
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
-                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                        onClick={() =>
+                                          handleScreenAIAction(
+                                            screen.id,
+                                            screen.path,
+                                            "suggest-improvements",
+                                          )
+                                        }
                                         className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                       >
                                         <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
                                         Suggest improvements
                                       </DropdownMenuItem>
                                       <DropdownMenuItem
-                                        onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                        onClick={() =>
+                                          handleScreenAIAction(
+                                            screen.id,
+                                            screen.path,
+                                            "copy-alternatives",
+                                          )
+                                        }
                                         className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                       >
                                         <Type className="w-4 h-4 mr-2 text-blue-400" />
@@ -2538,7 +2580,11 @@ const MaterializeRenderSection = forwardRef<
                                         <>
                                           <DropdownMenuSeparator className="bg-border" />
                                           <DropdownMenuItem
-                                            onClick={() => handleRemoveMobileScreen(screen.id)}
+                                            onClick={() =>
+                                              handleRemoveMobileScreen(
+                                                screen.id,
+                                              )
+                                            }
                                             className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
                                           >
                                             <X className="w-4 h-4 mr-2 opacity-70" />
@@ -2604,8 +2650,8 @@ const MaterializeRenderSection = forwardRef<
                                   // Disable pointer events during any resize so mouse events reach the document
                                   pointerEvents:
                                     isResizingMobile ||
-                                      isResizingWebFrame ||
-                                      isResizingTerminal
+                                    isResizingWebFrame ||
+                                    isResizingTerminal
                                       ? "none"
                                       : "auto",
                                 }}
@@ -2792,7 +2838,10 @@ const MaterializeRenderSection = forwardRef<
                                     <MoreVertical className="w-3 h-3" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                                <DropdownMenuContent
+                                  align="end"
+                                  className="w-52 bg-accent border-border text-foreground"
+                                >
                                   <DropdownMenuItem
                                     onClick={() => refreshScreen(screen.id)}
                                     className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
@@ -2802,21 +2851,39 @@ const MaterializeRenderSection = forwardRef<
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="bg-border" />
                                   <DropdownMenuItem
-                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                    onClick={() =>
+                                      handleScreenAIAction(
+                                        screen.id,
+                                        screen.path,
+                                        "redesign",
+                                      )
+                                    }
                                     className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                   >
                                     <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
                                     Redesign this screen
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                    onClick={() =>
+                                      handleScreenAIAction(
+                                        screen.id,
+                                        screen.path,
+                                        "suggest-improvements",
+                                      )
+                                    }
                                     className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                   >
                                     <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
                                     Suggest improvements
                                   </DropdownMenuItem>
                                   <DropdownMenuItem
-                                    onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                    onClick={() =>
+                                      handleScreenAIAction(
+                                        screen.id,
+                                        screen.path,
+                                        "copy-alternatives",
+                                      )
+                                    }
                                     className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                                   >
                                     <Type className="w-4 h-4 mr-2 text-blue-400" />
@@ -2826,7 +2893,9 @@ const MaterializeRenderSection = forwardRef<
                                     <>
                                       <DropdownMenuSeparator className="bg-border" />
                                       <DropdownMenuItem
-                                        onClick={() => handleRemoveMobileScreen(screen.id)}
+                                        onClick={() =>
+                                          handleRemoveMobileScreen(screen.id)
+                                        }
                                         className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
                                       >
                                         <X className="w-4 h-4 mr-2 opacity-70" />
@@ -2885,8 +2954,8 @@ const MaterializeRenderSection = forwardRef<
                                   // Disable pointer events during any resize so mouse events reach the document
                                   pointerEvents:
                                     isResizingMobile ||
-                                      isResizingWebFrame ||
-                                      isResizingTerminal
+                                    isResizingWebFrame ||
+                                    isResizingTerminal
                                       ? "none"
                                       : "auto",
                                 }}
@@ -2955,17 +3024,17 @@ const MaterializeRenderSection = forwardRef<
                 : "grid",
               // Center single screen when manually resized or in mobile size mode
               !showWebMultiScreen &&
-              hasManuallyResizedWebFrame &&
-              "items-start justify-center",
+                hasManuallyResizedWebFrame &&
+                "items-start justify-center",
               isWebMobileSize && "items-center justify-center",
               isWebFullScreen && "items-center justify-center",
             )}
             style={{
               gridTemplateColumns:
                 !showWebMultiScreen ||
-                  isNarrowViewport ||
-                  isWebMobileSize ||
-                  isWebFullScreen
+                isNarrowViewport ||
+                isWebMobileSize ||
+                isWebFullScreen
                   ? "1fr"
                   : webGridLayout.gridTemplate,
             }}
@@ -2990,50 +3059,50 @@ const MaterializeRenderSection = forwardRef<
                       "bg-accent rounded-xl border border-border overflow-hidden shadow-sm flex flex-col relative transition-all duration-300 min-w-0",
                       isWebMobileSize && !isWebFullScreen && "mx-auto",
                       isWebFullScreen &&
-                      "absolute inset-4 z-50 mx-auto shadow-2xl",
+                        "absolute inset-4 z-50 mx-auto shadow-2xl",
                     )}
                     style={{
                       // Full-screen mode takes priority
                       ...(isWebFullScreen
                         ? isWebMobileSize
                           ? {
-                            // Full-screen + mobile size: centered mobile width, full height
-                            width: webMobileSizeWidth,
-                            maxWidth: "100%",
-                            inset: "1rem auto",
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                          }
+                              // Full-screen + mobile size: centered mobile width, full height
+                              width: webMobileSizeWidth,
+                              maxWidth: "100%",
+                              inset: "1rem auto",
+                              left: "50%",
+                              transform: "translateX(-50%)",
+                            }
                           : {
-                            // Full-screen only: fill the area
-                          }
+                              // Full-screen only: fill the area
+                            }
                         : isWebMobileSize
                           ? {
-                            // Mobile size only: constrained dimensions
-                            width: webMobileSizeWidth,
-                            height: webMobileSizeHeight,
-                            maxWidth: "100%",
-                          }
+                              // Mobile size only: constrained dimensions
+                              width: webMobileSizeWidth,
+                              height: webMobileSizeHeight,
+                              maxWidth: "100%",
+                            }
                           : showWebMultiScreen && webScreens.length > 1
                             ? {
-                              // Multiple screens: use minHeight for grid layout
-                              minHeight: webFrameHeight,
-                            }
+                                // Multiple screens: use minHeight for grid layout
+                                minHeight: webFrameHeight,
+                              }
                             : showWebMultiScreen && webScreens.length === 1
                               ? {
-                                // Single screen in grid mode: fill container
-                                height: "100%",
-                                maxWidth: "100%",
-                              }
-                              : hasManuallyResizedWebFrame
-                                ? {
-                                  width: webFrameWidth ?? undefined,
-                                  height: webFrameHeight,
+                                  // Single screen in grid mode: fill container
+                                  height: "100%",
                                   maxWidth: "100%",
                                 }
+                              : hasManuallyResizedWebFrame
+                                ? {
+                                    width: webFrameWidth ?? undefined,
+                                    height: webFrameHeight,
+                                    maxWidth: "100%",
+                                  }
                                 : {
-                                  height: "100%",
-                                }),
+                                    height: "100%",
+                                  }),
                     }}
                   >
                     {/* Browser Header */}
@@ -3243,7 +3312,10 @@ const MaterializeRenderSection = forwardRef<
                                 <MoreVertical className="w-3 h-3 text-muted-foreground" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 bg-accent border-border text-foreground"
+                            >
                               <DropdownMenuItem
                                 onClick={() => refreshWebScreen(screen.id)}
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
@@ -3253,21 +3325,39 @@ const MaterializeRenderSection = forwardRef<
                               </DropdownMenuItem>
                               <DropdownMenuSeparator className="bg-border" />
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "redesign",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
                                 Redesign this screen
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "suggest-improvements",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
                                 Suggest improvements
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "copy-alternatives",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Type className="w-4 h-4 mr-2 text-blue-400" />
@@ -3277,7 +3367,9 @@ const MaterializeRenderSection = forwardRef<
                                 <>
                                   <DropdownMenuSeparator className="bg-border" />
                                   <DropdownMenuItem
-                                    onClick={() => handleRemoveWebScreen(screen.id)}
+                                    onClick={() =>
+                                      handleRemoveWebScreen(screen.id)
+                                    }
                                     className="text-red-400 focus:text-red-300 focus:bg-red-500/10 text-sm cursor-pointer"
                                   >
                                     <X className="w-4 h-4 mr-2 opacity-70" />
@@ -3314,23 +3406,44 @@ const MaterializeRenderSection = forwardRef<
                                 <Sparkles className="w-3.5 h-3.5 text-purple-400" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-52 bg-accent border-border text-foreground">
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 bg-accent border-border text-foreground"
+                            >
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "redesign")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "redesign",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Wand2 className="w-4 h-4 mr-2 text-purple-400" />
                                 Redesign this screen
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "suggest-improvements")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "suggest-improvements",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Lightbulb className="w-4 h-4 mr-2 text-yellow-400" />
                                 Suggest improvements
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleScreenAIAction(screen.id, screen.path, "copy-alternatives")}
+                                onClick={() =>
+                                  handleScreenAIAction(
+                                    screen.id,
+                                    screen.path,
+                                    "copy-alternatives",
+                                  )
+                                }
                                 className="focus:bg-accent/80 focus:text-foreground text-muted-foreground text-sm cursor-pointer"
                               >
                                 <Type className="w-4 h-4 mr-2 text-blue-400" />
@@ -3360,8 +3473,8 @@ const MaterializeRenderSection = forwardRef<
                           // Disable pointer events during any resize so mouse events reach the document
                           pointerEvents:
                             isResizingMobile ||
-                              isResizingWebFrame ||
-                              isResizingTerminal
+                            isResizingWebFrame ||
+                            isResizingTerminal
                               ? "none"
                               : "auto",
                         }}
@@ -3776,7 +3889,6 @@ const MaterializeRenderSection = forwardRef<
                   </TooltipProvider>
                 )}
 
-
                 {/* Other toggles only shown when not in full screen */}
                 {!(isWebFullScreen && previewMode === "web") && (
                   <>
@@ -4126,7 +4238,7 @@ const MaterializeRenderSection = forwardRef<
                             : githubRepository.html_url
                               ? "View Repository"
                               : githubIntegration.connected &&
-                                currentUserMembership?.role !== "viewer"
+                                  currentUserMembership?.role !== "viewer"
                                 ? "Create Repository For Project"
                                 : "Connect GitHub"}
                         </Button>
@@ -4356,7 +4468,7 @@ const MaterializeRenderSection = forwardRef<
                             "p-1.5 rounded-md transition-colors",
                             canvasLayoutMode === "grid"
                               ? "bg-background text-foreground shadow-sm"
-                              : "text-muted-foreground hover:text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
                           )}
                           aria-label="Grid layout"
                           aria-pressed={canvasLayoutMode === "grid"}
@@ -4378,7 +4490,7 @@ const MaterializeRenderSection = forwardRef<
                             "p-1.5 rounded-md transition-colors",
                             canvasLayoutMode === "freeform"
                               ? "bg-background text-foreground shadow-sm"
-                              : "text-muted-foreground hover:text-foreground"
+                              : "text-muted-foreground hover:text-foreground",
                           )}
                           aria-label="Canvas layout"
                           aria-pressed={canvasLayoutMode === "freeform"}
@@ -4395,11 +4507,17 @@ const MaterializeRenderSection = forwardRef<
               )}
 
               {/* Add Screen button */}
-              {(isCanvasPreviewEnabled ? canvasLayoutMode === "freeform" : previewMode === "mobile") && (
+              {(isCanvasPreviewEnabled
+                ? canvasLayoutMode === "freeform"
+                : previewMode === "mobile") && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={isCanvasPreviewEnabled && canvasLayoutMode === "freeform" ? handleAddCanvasScreen : handleAddMobileScreen}
+                  onClick={
+                    isCanvasPreviewEnabled && canvasLayoutMode === "freeform"
+                      ? handleAddCanvasScreen
+                      : handleAddMobileScreen
+                  }
                   className="h-8 bg-accent border border-border text-muted-foreground hover:text-foreground hover:border-border/80 hover:bg-accent/80 transition-all"
                   title="Add another screen"
                   disabled={!viewing_url}
@@ -4418,13 +4536,13 @@ const MaterializeRenderSection = forwardRef<
                 initialScreens={
                   previewMode === "mobile"
                     ? (initialScreens || mobileScreens).map((s) => ({
-                      id: s.id,
-                      path: s.path,
-                    }))
+                        id: s.id,
+                        path: s.path,
+                      }))
                     : (initialWebScreens || webScreens).map((s) => ({
-                      id: s.id,
-                      path: s.path,
-                    }))
+                        id: s.id,
+                        path: s.path,
+                      }))
                 }
                 initialCanvasState={initialCanvasState}
                 onCanvasStateChange={onCanvasStateChange}
