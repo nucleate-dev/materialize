@@ -10,7 +10,7 @@ import type {
   TablesUpdate,
 } from "../../types/supabase.js";
 
-const MAX_IDLE_TUNNELS: number = 15;
+const MAX_IDLE_TUNNELS: number = 0;
 
 export type CloudflareTunnel =
   Database["public"]["Tables"]["cloudflare_tunnels"]["Row"];
