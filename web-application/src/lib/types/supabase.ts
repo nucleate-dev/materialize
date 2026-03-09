@@ -383,6 +383,101 @@ export type Database = {
         }
         Relationships: []
       }
+      connectors_convex_integration_tokens: {
+        Row: {
+          access_token_encrypted: string
+          created_at: string
+          integration_id: string
+          refresh_token_encrypted: string | null
+          refresh_token_expires_at: string | null
+          token_expires_at: string | null
+          token_scopes: string | null
+          token_type: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          created_at?: string
+          integration_id: string
+          refresh_token_encrypted?: string | null
+          refresh_token_expires_at?: string | null
+          token_expires_at?: string | null
+          token_scopes?: string | null
+          token_type?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          created_at?: string
+          integration_id?: string
+          refresh_token_encrypted?: string | null
+          refresh_token_expires_at?: string | null
+          token_expires_at?: string | null
+          token_scopes?: string | null
+          token_type?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connectors_convex_integration_tokens_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: true
+            referencedRelation: "connectors_convex_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      connectors_convex_integrations: {
+        Row: {
+          connected_at: string
+          connected_by_user_id: string | null
+          convex_team_id: string
+          convex_team_name: string | null
+          id: string
+          metadata: Json
+          status: Database["public"]["Enums"]["connector_status"]
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          connected_at?: string
+          connected_by_user_id?: string | null
+          convex_team_id: string
+          convex_team_name?: string | null
+          id?: string
+          metadata?: Json
+          status?: Database["public"]["Enums"]["connector_status"]
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          connected_at?: string
+          connected_by_user_id?: string | null
+          convex_team_id?: string
+          convex_team_name?: string | null
+          id?: string
+          metadata?: Json
+          status?: Database["public"]["Enums"]["connector_status"]
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connectors_convex_integrations_connected_by_user_id_fkey"
+            columns: ["connected_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "connectors_convex_integrations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       connectors_supabase_integration_tokens: {
         Row: {
           access_token_encrypted: string
