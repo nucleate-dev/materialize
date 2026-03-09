@@ -10,6 +10,7 @@ APP_DIR="/opt/materialize/server/control-plane"
 S3_BUCKET="materialize-control-plane"
 S3_KEY="dist/control-plane-dist.zip"
 SECRET_CONFIG_ID="materialize-control-plane/environment"
+EIP_ALLOCATION_ID="eipalloc-09e9c897144d50786"
 
 # Node + service config
 NODE_MAJOR="22"
@@ -110,6 +111,11 @@ else
     xdg-utils
 fi
 
+# --- Attach Elastic IP ---
+echo "[user-data] Attaching Elastic IP..."
+INSTANCE_ID=$(ec2-metadata -i | awk '{print $2}')
+aws ec2 associate-address --instance-id "$INSTANCE_ID" --allocation-id "$EIP_ALLOCATION_ID" --region "$REGION" --allow-reassociation
+
 # --- Install CloudWatch Agent ---
 yum install -y amazon-cloudwatch-agent || dnf install -y amazon-cloudwatch-agent
 mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
@@ -194,5 +200,66 @@ EOF
 
 systemctl daemon-reload
 systemctl enable --now control-plane
+
+# --- Install and configure Caddy (TLS termination + reverse proxy, replaces ALB) ---
+echo "[user-data] Installing Caddy..."
+CADDY_VERSION=$(curl -s "https://api.github.com/repos/caddyserver/caddy/releases/latest" | jq -r '.tag_name' | sed 's/^v//')
+if [[ -z "$CADDY_VERSION" || "$CADDY_VERSION" == "null" ]]; then
+  echo "[user-data] ERROR: Failed to fetch Caddy version from GitHub API"
+  exit 1
+fi
+curl -sfLo /tmp/caddy.tar.gz "https://github.com/caddyserver/caddy/releases/download/v${CADDY_VERSION}/caddy_${CADDY_VERSION}_linux_amd64.tar.gz"
+mkdir -p /tmp/caddy-extract
+tar -xzf /tmp/caddy.tar.gz -C /tmp/caddy-extract
+install -m 0755 /tmp/caddy-extract/caddy /usr/bin/caddy
+rm -rf /tmp/caddy-extract /tmp/caddy.tar.gz
+
+groupadd --system caddy 2>/dev/null || true
+useradd --system --gid caddy --create-home --home-dir /var/lib/caddy --shell /usr/sbin/nologin caddy 2>/dev/null || true
+mkdir -p /etc/caddy /var/lib/caddy/.config /var/lib/caddy/.local
+chown -R caddy:caddy /var/lib/caddy
+
+cat > /etc/caddy/Caddyfile <<'CADDYEOF'
+{
+    on_demand_tls {
+        ask http://localhost:3000/health
+    }
+}
+
+https:// {
+    tls {
+        on_demand
+    }
+    reverse_proxy localhost:3000
+}
+CADDYEOF
+chown caddy:caddy /etc/caddy/Caddyfile
+
+cat > /etc/systemd/system/caddy.service <<'EOF'
+[Unit]
+Description=Caddy reverse proxy
+After=network-online.target control-plane.service
+Wants=network-online.target
+
+[Service]
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+Restart=on-failure
+RestartSec=5
+Environment=XDG_DATA_HOME=/var/lib/caddy/.local
+Environment=XDG_CONFIG_HOME=/var/lib/caddy/.config
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now caddy
 
 echo "[user-data] Bootstrap complete (region=${REGION}, app=${APP_DIR})."
