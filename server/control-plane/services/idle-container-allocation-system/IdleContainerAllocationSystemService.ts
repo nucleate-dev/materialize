@@ -34,6 +34,7 @@ import {
   idleContainerExists,
   updateBuildFields,
   updateBuildTunnelInfo,
+  getInfraConfig,
 } from "../../utils/cacheInteractionUtils.js";
 // CLOUDFLARE TUNNEL DISABLED - import kept for potential re-enablement
 // import { deleteCloudflareTunnel } from "../../utils/cloudflareTunnelManagementUtils.js";
@@ -42,8 +43,6 @@ import { getSubscriptionInfo } from "../../utils/subscriptionChecks.js";
 // import { IdleCloudflareTunnelSystem } from "./IdleCloudflareTunnelSystem.js";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { Database } from "../../types/supabase.js";
-
-const MAX_IDLE_FARGATE_BUILDS: number = 1;
 
 export class IdleContainerAllocationSystemService {
   private readonly ecsClient: ECSClient;
@@ -91,15 +90,22 @@ export class IdleContainerAllocationSystemService {
     if (this.maintenanceTimer) clearInterval(this.maintenanceTimer);
   }
 
+  /** Fetch max idle container count from infra_config (defaults to 0) */
+  private async getMaxIdleBuilds(): Promise<number> {
+    const val = await getInfraConfig('max_idle_fargate_builds', '0');
+    return Math.max(0, parseInt(val, 10) || 0);
+  }
+
   private async ensureIdleCapacity(): Promise<void> {
     if (process.env.NODE_ENV === "development") return; // no idle containers in development mode
+    const maxIdleBuilds = await this.getMaxIdleBuilds();
     const currentIdle = await getIdleContainerCount();
-    const toCreate = MAX_IDLE_FARGATE_BUILDS - currentIdle;
+    const toCreate = maxIdleBuilds - currentIdle;
     if (toCreate === 0) return;
     else if (toCreate > 0) {
       this.log2.consoleLogDevOnly(
         "info",
-        `Refreshing idle container capacity: Creating ${toCreate} idle builds to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
+        `Refreshing idle container capacity: Creating ${toCreate} idle builds to reach max ${maxIdleBuilds}`,
       );
       await Promise.all(
         Array.from({ length: toCreate }, () => this.launchIdleContainer()),
@@ -108,7 +114,7 @@ export class IdleContainerAllocationSystemService {
       // Too many idle builds, clean them up
       const toRemove = Math.abs(toCreate);
       this.log2.warn(
-        `[IdleAlloc] Found ${currentIdle} idle builds, cleaning up ${toRemove} to reach max ${MAX_IDLE_FARGATE_BUILDS}`,
+        `[IdleAlloc] Found ${currentIdle} idle builds, cleaning up ${toRemove} to reach max ${maxIdleBuilds}`,
       );
 
       // Collect tasks to remove
@@ -169,7 +175,8 @@ export class IdleContainerAllocationSystemService {
         "[ContainerAlloc] No idle containers found, falling back to direct launch",
         { prototypeId },
       );
-      if (MAX_IDLE_FARGATE_BUILDS > 0) {
+      const maxIdleBuilds = await this.getMaxIdleBuilds();
+      if (maxIdleBuilds > 0) {
         // background replenish
         this.launchIdleContainer().catch((err) =>
           this.log2.error(

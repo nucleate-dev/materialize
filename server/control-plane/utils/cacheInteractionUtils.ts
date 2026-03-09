@@ -504,6 +504,26 @@ export async function getCacheStats(): Promise<{
 }
 
 // ============================================================================
+// INFRA CONFIG OPERATIONS
+// ============================================================================
+
+/**
+ * Get an infrastructure config value by key, with a fallback default.
+ * Reads from the infra_config table (service-role-only).
+ */
+export async function getInfraConfig(key: string, defaultValue: string): Promise<string> {
+  const supabase = getCacheClient();
+  const { data, error } = await supabase
+    .from('infra_config')
+    .select('value')
+    .eq('key', key)
+    .maybeSingle();
+
+  if (error || !data) return defaultValue;
+  return data.value;
+}
+
+// ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
 
