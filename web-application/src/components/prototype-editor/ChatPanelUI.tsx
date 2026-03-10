@@ -7,6 +7,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -25,7 +30,6 @@ import { cn } from "@/lib/classNames"; // Assuming cn utility exists
 import type { AuthMode } from "@/lib/utils/authModeUtils";
 import {
   ArrowDown,
-
   Check,
   ChevronDown,
   ChevronRight,
@@ -1050,66 +1054,109 @@ export default function ClaudeCodePanelUI({
                     </Tooltip>
                   </TooltipProvider>
 
-                  {/* Auth Mode Selector */}
-                  {showAuthModePicker && (
-                    <Select
-                      value={authMode}
-                      onValueChange={(value) =>
-                        onAuthModeChange(value as AuthMode)
-                      }
-                      disabled={
-                        isProcessing ||
-                        !isCurrentSessionMostRecent ||
-                        isAuthModeLoading
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
-                        {isAuthModeLoading ? (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                            <span className="text-xs">Loading…</span>
-                          </div>
-                        ) : (
-                          <SelectValue />
-                        )}
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border-border">
-                        <SelectItem value="nucleate" className="text-xs">
-                          Nucleate Credits
-                        </SelectItem>
-                        <SelectItem
-                          value="claude_sub"
-                          disabled={!hasClaudeToken}
-                          className="text-xs data-[disabled]:opacity-100 data-[disabled]:text-muted-foreground"
-                        >
-                          Your Claude Sub
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-
-                  {/* Claude Model Selector */}
+                  {/* Model & Auth Settings Popover */}
                   {modelProvider === "claude" && (
-                    <Select
-                      value={model}
-                      onValueChange={onModelChange}
-                      disabled={isProcessing || !isCurrentSessionMostRecent}
-                    >
-                      <SelectTrigger className="h-8 text-xs bg-accent/50 border-border/50 text-foreground focus:ring-0 px-2 gap-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-background border-border">
-                        {claudeModels.map((modelOption) => (
-                          <SelectItem
-                            key={modelOption.value}
-                            value={modelOption.value}
-                            className="text-xs"
-                          >
-                            {modelOption.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isProcessing || !isCurrentSessionMostRecent}
+                          className="h-8 text-xs bg-accent/50 border border-border/50 text-foreground px-2 gap-1 hover:bg-accent"
+                        >
+                          {showAuthModePicker
+                            ? `${authMode === "claude_sub" ? "Your Claude" : "Nucleate"} — ${claudeModels.find((m) => m.value === model)?.label ?? model}`
+                            : claudeModels.find((m) => m.value === model)?.label ?? model}
+                          <ChevronDown className="w-3 h-3 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent
+                        className="w-56 p-3 space-y-3"
+                        align="start"
+                        side="top"
+                      >
+                        {/* Model Selection */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Model
+                          </label>
+                          <div className="space-y-0.5">
+                            {claudeModels.map((modelOption) => (
+                              <button
+                                key={modelOption.value}
+                                onClick={() => onModelChange(modelOption.value)}
+                                className={cn(
+                                  "flex items-center justify-between w-full rounded-md px-2 py-1.5 text-xs transition-colors",
+                                  model === modelOption.value
+                                    ? "bg-primary/10 text-primary font-medium"
+                                    : "text-foreground hover:bg-accent",
+                                )}
+                              >
+                                {modelOption.label}
+                                {model === modelOption.value && (
+                                  <Check className="w-3 h-3" />
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Auth Mode Selection */}
+                        {showAuthModePicker && (
+                          <>
+                            <div className="h-px bg-border" />
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                                Credits
+                              </label>
+                              {isAuthModeLoading ? (
+                                <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  <span>Loading…</span>
+                                </div>
+                              ) : (
+                                <div className="space-y-0.5">
+                                  <button
+                                    onClick={() => onAuthModeChange("nucleate")}
+                                    className={cn(
+                                      "flex items-center justify-between w-full rounded-md px-2 py-1.5 text-xs transition-colors",
+                                      authMode === "nucleate"
+                                        ? "bg-primary/10 text-primary font-medium"
+                                        : "text-foreground hover:bg-accent",
+                                    )}
+                                  >
+                                    Nucleate Credits
+                                    {authMode === "nucleate" && (
+                                      <Check className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (hasClaudeToken) {
+                                        onAuthModeChange("claude_sub");
+                                      }
+                                    }}
+                                    disabled={!hasClaudeToken}
+                                    className={cn(
+                                      "flex items-center justify-between w-full rounded-md px-2 py-1.5 text-xs transition-colors",
+                                      !hasClaudeToken && "opacity-50 cursor-not-allowed",
+                                      authMode === "claude_sub"
+                                        ? "bg-primary/10 text-primary font-medium"
+                                        : "text-foreground hover:bg-accent",
+                                    )}
+                                  >
+                                    Your Claude Sub
+                                    {authMode === "claude_sub" && (
+                                      <Check className="w-3 h-3" />
+                                    )}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </PopoverContent>
+                    </Popover>
                   )}
                 </div>
 
