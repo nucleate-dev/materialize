@@ -329,7 +329,7 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     const [modelProvider, setModelProvider] = useState<"claude" | "vercel">(
       "claude",
     );
-    const [model, setModel] = useState<string>("claude-sonnet-4-5");
+    const [model, setModel] = useState<string>("claude-opus-4-6");
     const vercelModelOptions = useMemo(
       () => [
         { value: "gpt-5.1-codex-mini", label: "GPT-5.1 Codex Mini" },
@@ -341,8 +341,8 @@ const ClaudeCodePanel = forwardRef<ClaudeCodePanelRef, ClaudeCodePanelProps>(
     );
     const claudeModelOptions = useMemo(
       () => [
-        { value: "claude-sonnet-4-5", label: "Sonnet 4.5" },
         { value: "claude-opus-4-6", label: "Opus 4.6" },
+        { value: "claude-sonnet-4-5", label: "Sonnet 4.5" },
         { value: "claude-haiku-4-5", label: "Haiku 4.5" },
       ],
       [],
