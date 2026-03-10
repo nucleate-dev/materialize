@@ -687,6 +687,7 @@ async function handleDispatchForSandboxSimulatorFlow(
         cloudflare_credentials: {
           cloudflare_tunnel_token: '',
           cloudflare_tunnel_hostname: `http://${process.env.DEVELOPMENT_EC2_IP}`,
+          tunnel_mode: 'none',
         },
         keys: {
           orchestration_token,

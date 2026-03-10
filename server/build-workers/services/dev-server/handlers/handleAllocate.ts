@@ -251,13 +251,17 @@ export async function handleAllocateImpl(
     let tunnelStatus: "connected" | "error" | "timeout" | "not_started" =
       "not_started";
     let tunnelMessage: string | undefined;
-    // 6. CLOUDFLARE TUNNEL:
-    // CLOUDFLARE TUNNEL DISABLED - skip tunnel setup when no token is provided (using public IP directly)
-    // Was: if (process.env.FARGATE_DEV_MODE !== "true") {
-    if (process.env.FARGATE_DEV_MODE !== "true" && cloudflare_credentials.cloudflare_tunnel_token) {
+    let quickTunnelApiUrl: string | undefined;
+    let quickTunnelViewerUrl: string | undefined;
+
+    const tunnelMode = cloudflare_credentials.tunnel_mode ?? "none";
+
+    // 6. CLOUDFLARE TUNNEL (controlled by tunnel_mode, not FARGATE_DEV_MODE):
+    if (tunnelMode === "custom" && cloudflare_credentials.cloudflare_tunnel_token) {
+      // Named/custom Cloudflare tunnel (uses PTY-based approach)
       request.log2.consoleLogDevOnly(
         "info",
-        "Starting Cloudflare tunnel setup",
+        "Starting custom Cloudflare tunnel setup",
       );
       try {
         const result = await materializeDevelopmentServerService
@@ -268,7 +272,7 @@ export async function handleAllocateImpl(
         tunnelMessage = result.message;
 
         if (tunnelStatus === "connected") {
-          request.log2.info("Cloudflare tunnel connected successfully");
+          request.log2.info("Custom Cloudflare tunnel connected successfully");
         } else if (tunnelStatus === "timeout") {
           throw new Error(
             `Cloudflare tunnel connection timed out: ${tunnelMessage}`,
@@ -283,12 +287,65 @@ export async function handleAllocateImpl(
         tunnelMessage = tunnelError instanceof Error
           ? tunnelError.message
           : "Failed to start Cloudflare tunnel";
-        request.log2.error(tunnelError, "Failed to start Cloudflare tunnel");
+        request.log2.error(tunnelError, "Failed to start custom Cloudflare tunnel");
+        throw tunnelError instanceof Error
+          ? tunnelError
+          : new Error(tunnelMessage);
+      }
+    } else if (tunnelMode === "quick") {
+      // Free Cloudflare Quick Tunnels — two separate child processes,
+      // one for the API port (3002) and one for the viewer/dev-server port (19006).
+      // Each gets a random *.trycloudflare.com HTTPS URL.
+      request.log2.consoleLogDevOnly(
+        "info",
+        "Starting Cloudflare quick tunnels for API (3002) and viewer (19006)",
+      );
+      try {
+        const { api, viewer } = await materializeDevelopmentServerService
+          .cloudflareTunnelManagementService.createQuickTunnels(3002, 19006);
+
+        // Both must connect for overall success
+        if (
+          api.status === "connected" && api.url &&
+          viewer.status === "connected" && viewer.url
+        ) {
+          quickTunnelApiUrl = api.url;
+          quickTunnelViewerUrl = viewer.url;
+          tunnelStatus = "connected";
+          tunnelMessage = "Quick tunnels connected successfully";
+
+          // Update the tunnel hostname to the viewer's quick tunnel HTTPS URL
+          // so the adapters use it for the viewing_url
+          materializeDevelopmentServerService.setCloudflareTunnelHostname(
+            quickTunnelViewerUrl,
+          );
+
+          request.log2.info("Cloudflare quick tunnels connected", {
+            apiUrl: quickTunnelApiUrl,
+            viewerUrl: quickTunnelViewerUrl,
+          });
+        } else {
+          tunnelStatus = "error";
+          const failedParts: string[] = [];
+          if (api.status !== "connected") failedParts.push(`API: ${api.message}`);
+          if (viewer.status !== "connected") failedParts.push(`Viewer: ${viewer.message}`);
+          tunnelMessage = `Quick tunnel(s) failed: ${failedParts.join("; ")}`;
+          throw new Error(tunnelMessage);
+        }
+      } catch (tunnelError) {
+        if (tunnelStatus !== "error") {
+          tunnelStatus = "error";
+          tunnelMessage = tunnelError instanceof Error
+            ? tunnelError.message
+            : "Failed to start quick tunnels";
+        }
+        request.log2.error(tunnelError, "Failed to start Cloudflare quick tunnels");
         throw tunnelError instanceof Error
           ? tunnelError
           : new Error(tunnelMessage);
       }
     }
+    // tunnel_mode === "none": no tunnel setup, use public IP directly
 
     // 7. CREDENTIALS:
     if (keys.aak) {
@@ -311,6 +368,8 @@ export async function handleAllocateImpl(
       data: {
         tunnel_status: tunnelStatus,
         tunnel_message: tunnelMessage,
+        quick_tunnel_api_url: quickTunnelApiUrl,
+        quick_tunnel_viewer_url: quickTunnelViewerUrl,
       },
       error: null,
     };

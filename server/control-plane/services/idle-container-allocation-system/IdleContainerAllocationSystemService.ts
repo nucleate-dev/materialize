@@ -668,7 +668,14 @@ export class IdleContainerAllocationSystemService {
     // );
     // const tunnelHostnameWithProtocol = `wss://${tunnelConfig.hostname}`;
 
-    // Use public IP directly for terminal hostname (like FARGATE_DEV_MODE)
+    // Tunnel mode: "quick" (free *.trycloudflare.com tunnels) by default,
+    // or "custom" (named tunnels via Cloudflare account) when USE_CUSTOM_CLOUDFLARE_TUNNELS=true.
+    // The dev EC2 flow in DevelopmentServerService explicitly passes tunnel_mode: "none".
+    const tunnelMode: "custom" | "quick" =
+      process.env.USE_CUSTOM_CLOUDFLARE_TUNNELS === "true" ? "custom" : "quick";
+
+    // Use public IP directly for terminal hostname — will be overridden by
+    // quick tunnel URL from the allocate response if tunnel_mode is "quick"
     const terminalHostname = `http://${info.privateIp}:3002`;
 
     // Generate orchestration token for authenticating container orchestration requests
@@ -731,11 +738,9 @@ export class IdleContainerAllocationSystemService {
         userId: userId || "unknown",
       },
       cloudflare_credentials: {
-        // CLOUDFLARE TUNNEL DISABLED - was:
-        // cloudflare_tunnel_token: tunnelConfig.token || "",
-        // cloudflare_tunnel_hostname: tunnelConfig.hostname ?? undefined,
         cloudflare_tunnel_token: "",
         cloudflare_tunnel_hostname: `http://${info.privateIp}`,
+        tunnel_mode: tunnelMode,
       },
       keys: {
         orchestration_token: orchestrationToken,
@@ -744,6 +749,7 @@ export class IdleContainerAllocationSystemService {
     };
 
     // Send creds to worker
+    let resolvedTerminalHostname = terminalHostname;
     try {
       const allocationResponse = await axios.post<
         SandboxAPIResponse<
@@ -771,23 +777,21 @@ export class IdleContainerAllocationSystemService {
           }`,
         );
       }
+
+      // If quick tunnels were created, use their HTTPS URLs instead of raw IPs
+      if (allocationResponse.data.data) {
+        const allocData = allocationResponse.data.data;
+        if (allocData.quick_tunnel_api_url) {
+          // Use the quick tunnel HTTPS URL for terminal/API connections (replaces http://<ip>:3002)
+          resolvedTerminalHostname = allocData.quick_tunnel_api_url;
+          this.log2.consoleLogDevOnly(
+            "info",
+            "Using quick tunnel URL for terminal hostname",
+            { resolvedTerminalHostname },
+          );
+        }
+      }
     } catch (error) {
-      // CLOUDFLARE TUNNEL DISABLED - tunnel cleanup commented out
-      // if (tunnelConfig.tunnel_id) {
-      //   try {
-      //     await deleteCloudflareTunnel(
-      //       tunnelConfig.tunnel_id,
-      //       this.log2,
-      //       tunnelConfig.hostname || undefined,
-      //       this.supabaseServiceRoleClient,
-      //     );
-      //   } catch (error) {
-      //     this.log2.error(
-      //       error,
-      //       "Failed to delete Cloudflare tunnel after allocation failure",
-      //     );
-      //   }
-      // }
       // Handle both axios errors and our thrown errors
       if (axios.isAxiosError(error)) {
         this.log2.error(
@@ -809,12 +813,27 @@ export class IdleContainerAllocationSystemService {
       throw error;
     }
 
+    // Update the terminal hostname in cache if it changed (e.g. from quick tunnel)
+    if (resolvedTerminalHostname !== terminalHostname) {
+      try {
+        await updateBuildTunnelInfo(
+          buildId,
+          "",
+          resolvedTerminalHostname,
+          orchestrationToken,
+        );
+      } catch (error) {
+        this.log2.error(error, "Failed to update build tunnel info with quick tunnel URL", {
+          activeBuildKey,
+          resolvedTerminalHostname,
+        });
+        // Non-fatal: we still return the resolved hostname
+      }
+    }
+
     return {
-      // CLOUDFLARE TUNNEL DISABLED - was:
-      // terminalTunnelId: tunnelConfig.tunnel_id || "",
-      // terminalTunnelHostname: tunnelHostnameWithProtocol,
       terminalTunnelId: "",
-      terminalTunnelHostname: terminalHostname,
+      terminalTunnelHostname: resolvedTerminalHostname,
       orchestrationToken: orchestrationToken,
     };
   }

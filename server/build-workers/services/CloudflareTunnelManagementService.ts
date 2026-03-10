@@ -1,5 +1,5 @@
 import { spawn as spawnPty, IPty } from "node-pty";
-import { spawn } from "child_process";
+import { spawn, ChildProcess } from "child_process";
 import process from "process";
 import { baseLogger } from "../loggers/index.js";
 import { WORK_DIR } from "../worker.js";
@@ -15,12 +15,24 @@ export interface CloudflareTunnelResult {
   message?: string;
 }
 
+export interface QuickTunnelResult {
+  status: CloudflareTunnelStatus;
+  url?: string;
+  message?: string;
+}
+
+export interface QuickTunnelsResult {
+  api: QuickTunnelResult;
+  viewer: QuickTunnelResult;
+}
+
 export interface CreateTunnelOptions {
   onOutput?: (output: string) => void;
   timeoutMs?: number;
 }
 
 const DEFAULT_TIMEOUT_MS = 15000;
+const QUICK_TUNNEL_TIMEOUT_MS = 30000;
 const CHECK_INTERVAL_MS = 500;
 const MAX_OUTPUT_CHARS = 16_384;
 
@@ -29,6 +41,7 @@ export class CloudflareTunnelManagementService {
   private readonly dataListeners = new Set<(chunk: string) => void>();
   private createInProgress = false;
   private tunnelRunning = false;
+  private quickTunnelProcesses: ChildProcess[] = [];
 
   constructor() {
     // Initialize PTY asynchronously - it will be ready before first use due to ensurePty()
@@ -217,7 +230,122 @@ export class CloudflareTunnelManagementService {
     };
   }
 
+  /**
+   * Creates a free Cloudflare Quick Tunnel for a single port.
+   * Uses `cloudflared tunnel --url http://localhost:<port>` which requires no
+   * Cloudflare account and returns a random *.trycloudflare.com HTTPS URL.
+   * Runs as a separate child_process.spawn (NOT the PTY used for named tunnels).
+   */
+  public async createQuickTunnel(port: number): Promise<QuickTunnelResult> {
+    return new Promise((resolve) => {
+      let outputBuffer = "";
+      let resolved = false;
+
+      const child = spawn("cloudflared", ["tunnel", "--url", `http://localhost:${port}`], {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: false,
+      });
+
+      this.quickTunnelProcesses.push(child);
+
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve({
+            status: "timeout",
+            message: `Quick tunnel for port ${port} timed out after ${QUICK_TUNNEL_TIMEOUT_MS}ms`,
+          });
+        }
+      }, QUICK_TUNNEL_TIMEOUT_MS);
+
+      const handleOutput = (chunk: Buffer): void => {
+        if (resolved) return;
+        const text = chunk.toString();
+        outputBuffer += text;
+        if (outputBuffer.length > MAX_OUTPUT_CHARS) {
+          outputBuffer = outputBuffer.slice(-MAX_OUTPUT_CHARS);
+        }
+
+        // Quick tunnels log the URL to stderr in the format:
+        // ... | INF +-------------------------------------------+
+        // ... | INF |  https://xxxxx.trycloudflare.com          |
+        // ... | INF +-------------------------------------------+
+        const urlMatch = outputBuffer.match(
+          /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/,
+        );
+        if (urlMatch) {
+          resolved = true;
+          clearTimeout(timeout);
+          baseLogger.info(`Quick tunnel connected for port ${port}: ${urlMatch[0]}`);
+          resolve({
+            status: "connected",
+            url: urlMatch[0],
+            message: `Quick tunnel connected for port ${port}`,
+          });
+        }
+      };
+
+      child.stdout?.on("data", handleOutput);
+      child.stderr?.on("data", handleOutput);
+
+      child.on("error", (error) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          baseLogger.error(
+            error,
+            `Failed to spawn quick tunnel for port ${port}`,
+          );
+          resolve({
+            status: "error",
+            message: error.message,
+          });
+        }
+      });
+
+      child.on("exit", (code) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          resolve({
+            status: "error",
+            message: `Quick tunnel process exited with code ${code} before connecting`,
+          });
+        }
+        // Remove from tracked processes
+        this.quickTunnelProcesses = this.quickTunnelProcesses.filter(
+          (p) => p !== child,
+        );
+      });
+    });
+  }
+
+  /**
+   * Creates two quick tunnels in parallel — one for the API/terminal port (3002)
+   * and one for the viewer/dev-server port (19006).
+   */
+  public async createQuickTunnels(
+    apiPort: number,
+    viewerPort: number,
+  ): Promise<QuickTunnelsResult> {
+    const [api, viewer] = await Promise.all([
+      this.createQuickTunnel(apiPort),
+      this.createQuickTunnel(viewerPort),
+    ]);
+    return { api, viewer };
+  }
+
   public async killTunnel(): Promise<void> {
+    // Kill any quick tunnel child processes
+    for (const child of this.quickTunnelProcesses) {
+      try {
+        child.kill("SIGTERM");
+      } catch {
+        // best-effort
+      }
+    }
+    this.quickTunnelProcesses = [];
+
     if (!(await this.ensurePty())) {
       await this.killCloudflaredProcessesDirectly();
       return;

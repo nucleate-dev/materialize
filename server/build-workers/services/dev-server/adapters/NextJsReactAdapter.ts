@@ -92,12 +92,12 @@ export class NextJsReactAdapter implements IDevelopmentServerAdapter {
           });
           resolve({
             data: {
-              // CLOUDFLARE TUNNEL DISABLED - was:
-              // tunnel_url:
-              //   process.env.FARGATE_DEV_MODE === "true"
-              //     ? `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`
-              //     : `${this.configuredTunnelUrl}`,
-              tunnel_url: `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`,
+              // When the tunnel URL is HTTPS (e.g. a Cloudflare quick tunnel or named tunnel),
+              // don't append the port — the tunnel already maps to the correct local port.
+              // Only append the port for direct HTTP access (e.g. http://<public-ip>:19006).
+              tunnel_url: this.configuredTunnelUrl.startsWith("https://")
+                ? this.configuredTunnelUrl
+                : `${this.configuredTunnelUrl}:${DEV_SERVER_PORT}`,
             },
             error: null,
           });

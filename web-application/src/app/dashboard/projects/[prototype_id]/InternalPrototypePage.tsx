@@ -751,7 +751,7 @@ export default function InternalPrototypePage() {
             (fetchViewData.data.viewing_url?.includes("ngrok") ||
               fetchViewData.data.viewing_url?.includes("sandbox") ||
               fetchViewData.data.viewing_url?.includes("19006"))) ||
-          fetchViewData.data.viewing_url?.includes("3002")
+          fetchViewData.data.viewing_url?.includes("trycloudflare")
         ) {
           setCurrentRenderStatus("Connecting..");
           setShouldTriggerInitialFetch(false);

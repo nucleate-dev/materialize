@@ -1995,8 +1995,8 @@ const MaterializeRenderSection = forwardRef<
         viewing_url.includes("ngrok") ||
         viewing_url.includes("tunnel") ||
         viewing_url.includes("19006") ||
-        viewing_url.includes("3002") ||
-        viewing_url.includes("sandbox.nucleate.dev");
+        viewing_url.includes("sandbox.nucleate.dev") ||
+        viewing_url?.includes("trycloudflare");
       if (isDevServer) onRenderStatusChange("Connected");
     }, [viewing_url, onRenderStatusChange]);
 
@@ -2178,8 +2178,8 @@ const MaterializeRenderSection = forwardRef<
         viewing_url.includes("ngrok") ||
         viewing_url.includes("tunnel") ||
         viewing_url.includes("19006") ||
-        viewing_url.includes("3002") ||
-        viewing_url.includes("sandbox.nucleate.dev");
+        viewing_url.includes("sandbox.nucleate.dev") ||
+        viewing_url?.includes("trycloudflare");
       if (isDevServer) {
         onRenderStatusChange("Connecting..");
       }

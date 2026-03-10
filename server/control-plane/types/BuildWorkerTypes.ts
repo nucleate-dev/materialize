@@ -240,6 +240,7 @@ export interface AllocationUserDetails {
 export interface AllocationCloudflareTunnelCredentials {
   cloudflare_tunnel_token: string;
   cloudflare_tunnel_hostname?: string;
+  tunnel_mode?: "custom" | "quick" | "none";
 }
 
 export interface AllocationKeys {
@@ -257,6 +258,8 @@ export interface PublicAllocateRequest {
 export interface PublicAllocateSuccessResponse {
   tunnel_status: "connected" | "error" | "timeout" | "not_started";
   tunnel_message?: string;
+  quick_tunnel_api_url?: string;
+  quick_tunnel_viewer_url?: string;
 }
 
 // Sandbox API Types
