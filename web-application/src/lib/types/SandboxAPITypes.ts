@@ -5,7 +5,7 @@
 // To update these types, modify the source file and run:
 // npm run sync-build-worker-types
 //
-// Last synced: 2026-03-09T02:27:30.156Z
+// Last synced: 2026-03-10T02:18:50.839Z
 
 import { Database } from "./supabase.js";
 
@@ -240,6 +240,7 @@ export interface AllocationUserDetails {
 export interface AllocationCloudflareTunnelCredentials {
   cloudflare_tunnel_token: string;
   cloudflare_tunnel_hostname?: string;
+  tunnel_mode?: "custom" | "quick" | "none";
 }
 
 export interface AllocationKeys {
@@ -257,6 +258,8 @@ export interface PublicAllocateRequest {
 export interface PublicAllocateSuccessResponse {
   tunnel_status: "connected" | "error" | "timeout" | "not_started";
   tunnel_message?: string;
+  quick_tunnel_api_url?: string;
+  quick_tunnel_viewer_url?: string;
 }
 
 // Sandbox API Types
