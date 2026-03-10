@@ -358,9 +358,11 @@ export function ProjectSettingsModal({
   }, [prototype, buildHistory, latestDeployKey]);
 
   // Check if slug has changed from the original
+  // If prototype has no slug yet (first deploy), there's nothing to diverge from
   const hasSlugChanged = useMemo(() => {
+    if (!prototype?.slug) return false;
     const normalizedDeploySlug = normalizeSlug(deploySlug);
-    return normalizedDeploySlug !== prototype?.slug;
+    return normalizedDeploySlug !== prototype.slug;
   }, [deploySlug, prototype?.slug]);
 
   // Initialize deploy state when modal opens
@@ -375,9 +377,7 @@ export function ProjectSettingsModal({
 
     // Only initialize once per modal open
     hasInitializedDeploySlug.current = true;
-    const suggestedSlug =
-      prototype.slug || normalizeSlug(prototype.name ?? "") || prototype.id;
-    setDeploySlug(suggestedSlug);
+    setDeploySlug(prototype.slug ?? "");
     setSlugAvailable(null);
     setSlugError(null);
   }, [open, prototype]);
@@ -1521,13 +1521,8 @@ export function ProjectSettingsModal({
                             size="icon"
                             className="h-7 w-7 hover:bg-destructive/20 hover:text-destructive"
                             onClick={() => {
-                              // Reset to original slug
-                              const originalSlug =
-                                prototype?.slug ||
-                                normalizeSlug(prototype?.name ?? "") ||
-                                prototype?.id ||
-                                "";
-                              setDeploySlug(originalSlug);
+                              // Reset to original slug (empty if never set)
+                              setDeploySlug(prototype?.slug ?? "");
                               setIsEditingSlug(false);
                               setSlugError(null);
                               setSlugAvailable(null);
@@ -1567,34 +1562,47 @@ export function ProjectSettingsModal({
                       <p className="text-sm uppercase tracking-wide text-muted-foreground">
                         URL
                       </p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-9 px-3 flex items-center bg-accent border border-border rounded-md">
-                          <span className="text-sm text-foreground truncate">
-                            https://{normalizeSlug(deploySlug)}.nucleate.site
-                          </span>
+                      {deploySlug ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 h-9 px-3 flex items-center bg-accent border border-border rounded-md">
+                            <span className="text-sm text-foreground truncate">
+                              https://{normalizeSlug(deploySlug)}.nucleate.site
+                            </span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                            onClick={() => setIsEditingSlug(true)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleCopyDeployUrl}
+                            disabled={!deploySlug}
+                            className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          >
+                            {deployUrlCopied ? (
+                              <Check className="w-4 h-4 text-success" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
+                          </Button>
                         </div>
+                      ) : (
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
+                          variant="outline"
                           onClick={() => setIsEditingSlug(true)}
+                          className="w-full h-9 text-sm text-muted-foreground"
                         >
-                          <Pencil className="w-4 h-4" />
+                          Set a URL to deploy
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={handleCopyDeployUrl}
-                          disabled={!deploySlug}
-                          className="h-9 w-9 text-muted-foreground hover:text-foreground"
-                        >
-                          {deployUrlCopied ? (
-                            <Check className="w-4 h-4 text-success" />
-                          ) : (
-                            <Copy className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
+                      )}
+                      {slugError && (
+                        <p className="text-xs text-warning">{slugError}</p>
+                      )}
                     </>
                   )}
                 </div>
@@ -1718,6 +1726,7 @@ export function ProjectSettingsModal({
                       isDeploying ||
                       isEditingSlug ||
                       slugError ||
+                      !deploySlug.trim() ||
                       isLatestBuildDeployed,
                     )}
                     className="bg-primary hover:bg-primary/90 text-primary-foreground"
