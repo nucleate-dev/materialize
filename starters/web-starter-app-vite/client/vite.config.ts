@@ -13,6 +13,6 @@ export default defineConfig({
     },
   },
   server: {
-    allowedHosts: ['.sandbox.nucleate.dev'],
+    allowedHosts: ['.sandbox.nucleate.dev', '.trycloudflare.com'],
   },
 })
