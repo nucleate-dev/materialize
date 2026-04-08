@@ -26,6 +26,7 @@ import {
 import { Database } from "../../../types/supabase.js";
 import { baseLogger, getWorkerContext, WORK_DIR } from "../../../worker.js";
 import { NucleateDevelopmentServerService } from "../../dev-server/NucleateDevelopmentServerService.js";
+import { ScreenshotService } from "../../dev-server/handlers/ScreenshotService.js";
 import { SandboxService } from "../../SandboxService.js";
 import { SupabaseClientService } from "../../SupabaseClientService.js";
 import { TerminalService } from "../../terminals/TerminalService.js";
@@ -151,6 +152,7 @@ export class ChatQueryHandler implements ChatEngine {
   private readonly devServerService: NucleateDevelopmentServerService;
   private readonly terminalService: TerminalService;
   private readonly askUserQuestionService: AskUserQuestionService;
+  private readonly screenshotService: ScreenshotService;
 
   constructor(
     supabaseClientService: SupabaseClientService,
@@ -164,6 +166,7 @@ export class ChatQueryHandler implements ChatEngine {
     this.devServerService = devServerService;
     this.terminalService = terminalService;
     this.askUserQuestionService = askUserQuestionService;
+    this.screenshotService = new ScreenshotService(baseLogger);
   }
 
   /**
@@ -606,6 +609,7 @@ export class ChatQueryHandler implements ChatEngine {
       "mcp__devtools__SafeBash",
       "mcp__devtools__checkTerminal",
       "mcp__devtools__RestartDevServer",
+      "mcp__devtools__ScreenshotDevServer",
       // MCP tools from design server
       "mcp__design__GeminiDesignExpert",
       "mcp__design__GenerateImage",
@@ -689,6 +693,33 @@ export class ChatQueryHandler implements ChatEngine {
         sourceRepoPullRequestHandler,
         prepareSourceRepoBranchHandler,
         listSourceRepoPullRequestsHandler,
+        // Screenshot callback
+        async (routePath: string, viewport?: "mobile" | "web") => {
+          const isWebFramework =
+            framework === "web_nextjs_react" || framework === "web_vite_react";
+          const aspect = viewport ?? (isWebFramework ? "web" : "mobile");
+          try {
+            const result = await this.screenshotService.takeScreenshot(
+              routePath,
+              aspect,
+            );
+            return {
+              buffer: result.buffer,
+              width: result.width,
+              height: result.height,
+            };
+          } catch (error) {
+            const errorMessage = error instanceof Error
+              ? error.message
+              : String(error);
+            return {
+              buffer: Buffer.alloc(0),
+              width: 0,
+              height: 0,
+              error: errorMessage,
+            };
+          }
+        },
       ),
       design: createDesignToolsMcpServer(
         baseLogger,

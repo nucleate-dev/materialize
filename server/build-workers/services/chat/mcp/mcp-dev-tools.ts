@@ -70,6 +70,12 @@ export type SourceRepoPullRequestListToolHandler = () => Promise<
   CallToolResult
 >;
 
+// Define the signature for the screenshot callback
+export type ScreenshotCallback = (
+  path: string,
+  viewport?: "mobile" | "web",
+) => Promise<{ buffer: Buffer; width: number; height: number; error?: string }>;
+
 export function createDevelopmentToolsMcpServer(
   runCommand: CommandRunner,
   writeFile: FileWriter,
@@ -80,6 +86,7 @@ export function createDevelopmentToolsMcpServer(
   sourceRepoPullRequestTool?: SourceRepoPullRequestToolHandler,
   prepareSourceRepoBranchTool?: SourceRepoBranchPreparationHandler,
   listSourceRepoPullRequestsTool?: SourceRepoPullRequestListToolHandler,
+  takeScreenshot?: ScreenshotCallback,
 ): McpSdkServerConfigWithInstance {
   return createSdkMcpServer({
     name: "devtools",
@@ -538,6 +545,82 @@ export function createDevelopmentToolsMcpServer(
               return {
                 content: [{ type: "text", text: message }],
               };
+            },
+          ),
+        ]
+        : []),
+
+      // --- Screenshot Dev Server Tool ---
+      ...(takeScreenshot
+        ? [
+          tool(
+            "ScreenshotDevServer",
+            "Take a screenshot of the running dev server at a specific route path. Returns the screenshot as an image so you can visually inspect the current state of the app. Use this to verify your changes look correct, debug visual issues, or check specific pages/screens. The dev server must be running for this tool to work.",
+            {
+              path: z
+                .string()
+                .default("/")
+                .describe(
+                  "The route path to screenshot (e.g., '/', '/about', '/settings'). Defaults to '/'.",
+                ),
+              viewport: z
+                .enum(["mobile", "web"])
+                .optional()
+                .describe(
+                  "Viewport size: 'mobile' (375x667 @2x) or 'web' (1280x720 @1x). If not specified, auto-detects based on the project framework.",
+                ),
+            },
+            async ({
+              path: routePath,
+              viewport,
+            }: {
+              path: string;
+              viewport?: "mobile" | "web";
+            }): Promise<CallToolResult> => {
+              try {
+                const result = await takeScreenshot(routePath, viewport);
+
+                if (result.error) {
+                  return {
+                    isError: true,
+                    content: [
+                      {
+                        type: "text",
+                        text: `Screenshot failed: ${result.error}`,
+                      },
+                    ],
+                  };
+                }
+
+                const base64Data = result.buffer.toString("base64");
+
+                return {
+                  content: [
+                    {
+                      type: "image",
+                      data: base64Data,
+                      mimeType: "image/png",
+                    },
+                    {
+                      type: "text",
+                      text: `Screenshot taken of ${routePath} (${result.width}x${result.height}, ${result.buffer.length} bytes)`,
+                    },
+                  ],
+                };
+              } catch (error) {
+                const errorMessage = error instanceof Error
+                  ? error.message
+                  : String(error);
+                return {
+                  isError: true,
+                  content: [
+                    {
+                      type: "text",
+                      text: `Failed to take screenshot: ${errorMessage}`,
+                    },
+                  ],
+                };
+              }
             },
           ),
         ]
