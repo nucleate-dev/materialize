@@ -1,11 +1,6 @@
 import ProPlanUpsellModal from "@/components/prototype-editor/ProPlanUpsellModal";
 import { Button } from "@/components/ui/button";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -30,13 +25,13 @@ import { cn } from "@/lib/classNames";
 import { Database } from "@/lib/types/supabase";
 import {
   AlertTriangle,
-  ChevronDown,
   Folder,
   Loader2,
   Lock,
   Palette,
   Rocket,
   Sparkles,
+  Settings,
 } from "lucide-react";
 import {
   VIEWER_ROLE_RESTRICTION_MESSAGE,
@@ -47,6 +42,7 @@ import {
   PrototypeFramework,
 } from "@/hooks/usePrototypePlatformOptions";
 import { VisibilityOption, PrototypeVisibility } from "@/hooks/usePrototypeVisibilityOptions";
+import { useState } from "react";
 
 export type DesignStyle = Database["public"]["Enums"]["design_style"];
 export type DesignSystemRow = Database["public"]["Tables"]["design_systems"]["Row"];
@@ -149,6 +145,9 @@ export default function NewPrototypeModalUI({
   setHasManualDesignSelection,
   isViewer,
 }: NewPrototypeModalUIProps) {
+  const [activeTab, setActiveTab] = useState<"essentials" | "advanced">("essentials");
+  const isLimitReached = userPlan === "free" && prototypeCount >= 5;
+
   return (
     <>
       <Dialog open={open} onOpenChange={onClose}>
@@ -175,7 +174,7 @@ export default function NewPrototypeModalUI({
             )}
           </DialogHeader>
 
-          {userPlan === "free" && prototypeCount >= 5 && (
+          {isLimitReached && (
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-500 mt-0.5" />
@@ -200,154 +199,167 @@ export default function NewPrototypeModalUI({
             </div>
           )}
 
+          {/* Tab Navigation */}
+          <div className="flex gap-1 p-1 bg-muted rounded-lg">
+            <button
+              type="button"
+              onClick={() => setActiveTab("essentials")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-all duration-200",
+                activeTab === "essentials"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <Rocket className="w-3.5 h-3.5" />
+                <span>Essentials</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("advanced")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium rounded-md transition-all duration-200",
+                activeTab === "advanced"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <div className="flex items-center justify-center gap-1.5">
+                <Settings className="w-3.5 h-3.5" />
+                <span>Advanced</span>
+              </div>
+            </button>
+          </div>
+
           <form
             onSubmit={handleSubmit}
             className={cn(
               "space-y-5",
-              userPlan === "free" &&
-                prototypeCount >= 5 &&
-                "opacity-50 pointer-events-none",
+              isLimitReached && "opacity-50 pointer-events-none"
             )}
           >
-            {/* Project Name Input */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="prototype-name"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Project Name
-              </Label>
-              <Input
-                id="prototype-name"
-                type="text"
-                placeholder="e.g. Fitness Tracker App"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className={cn(
-                  "h-11 bg-background border-border text-foreground focus:border-primary placeholder:text-muted-foreground/50 transition-all",
-                  touched &&
-                    !name.trim() &&
-                    "border-destructive/50 focus-visible:ring-destructive/20",
-                )}
-                autoFocus
-                maxLength={64}
-              />
-              {touched && !name.trim() && (
-                <p className="text-xs text-destructive">Name is required</p>
-              )}
-            </div>
-
-            {/* Platform Select */}
-            <div className="space-y-2">
-              <Label
-                htmlFor="platform-select"
-                className="text-xs font-medium text-muted-foreground"
-              >
-                Platform
-              </Label>
-              <Select
-                value={framework}
-                onValueChange={(value) =>
-                  setFramework(value as PrototypeFramework)
-                }
-                disabled={isCreating}
-              >
-                <SelectTrigger
-                  id="platform-select"
-                  className="h-11 bg-background border-border text-foreground focus:ring-0"
-                >
-                  <div className="flex items-center gap-2">
-                    <Rocket className="w-4 h-4 text-muted-foreground" />
-                    <SelectValue />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border text-foreground">
-                  {PLATFORM_OPTIONS.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      className="focus:bg-muted focus:text-foreground cursor-pointer"
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Visibility Select */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label
-                  htmlFor="prototype-visibility"
-                  className="text-xs font-medium text-muted-foreground"
-                >
-                  Visibility
-                </Label>
-                {!isUserPlanSubscribed && (
-                  <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
-                    Upgrade for Private
-                  </span>
-                )}
-              </div>
-              <Select
-                value={visibility}
-                onValueChange={handleVisibilityChange}
-                disabled={isCreating}
-              >
-                <SelectTrigger
-                  id="prototype-visibility"
-                  className="h-11 bg-background border-border text-foreground focus:ring-0"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border text-foreground">
-                  {visibilityOptions.map((option) => {
-                    const Icon = option.icon;
-                    return (
-                      <SelectItem
-                        key={option.value}
-                        value={option.value}
-                        className="focus:bg-muted focus:text-foreground cursor-pointer"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-muted-foreground" />
-                          <span>{option.label}</span>
-                          {option.isLocked && (
-                            <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
-                          )}
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Advanced Options Collapsible */}
-            <Collapsible
-              open={showAdvanced}
-              onOpenChange={setShowAdvanced}
-              className="border-t border-border pt-4"
-            >
-              <CollapsibleTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="flex items-center justify-between w-full p-0 h-auto text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-transparent transition-colors"
-                >
-                  <span>Advanced Options</span>
-                  <ChevronDown
+            {/* ESSENTIALS TAB */}
+            {activeTab === "essentials" && (
+              <div className="space-y-5 animate-in fade-in-50 duration-200">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="prototype-name"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Project Name
+                  </Label>
+                  <Input
+                    id="prototype-name"
+                    type="text"
+                    placeholder="e.g. Fitness Tracker App"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
                     className={cn(
-                      "w-3 h-3 transition-transform duration-200",
-                      showAdvanced && "rotate-180",
+                      "h-11 bg-background border-border text-foreground focus:border-primary placeholder:text-muted-foreground/50 transition-all",
+                      touched &&
+                        !name.trim() &&
+                        "border-destructive/50 focus-visible:ring-destructive/20"
                     )}
+                    autoFocus
+                    maxLength={64}
                   />
-                </Button>
-              </CollapsibleTrigger>
+                  {touched && !name.trim() && (
+                    <p className="text-xs text-destructive">Name is required</p>
+                  )}
+                </div>
 
-              <CollapsibleContent className="space-y-4 pt-4 animate-in slide-in-from-top-2">
-                {/* Folder Select */}
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="platform-select"
+                    className="text-xs font-medium text-muted-foreground"
+                  >
+                    Platform
+                  </Label>
+                  <Select
+                    value={framework}
+                    onValueChange={(value) =>
+                      setFramework(value as PrototypeFramework)
+                    }
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger
+                      id="platform-select"
+                      className="h-11 bg-background border-border text-foreground focus:ring-0"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Rocket className="w-4 h-4 text-muted-foreground" />
+                        <SelectValue />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border text-foreground">
+                      {PLATFORM_OPTIONS.map((option) => (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          className="focus:bg-muted focus:text-foreground cursor-pointer"
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label
+                      htmlFor="prototype-visibility"
+                      className="text-xs font-medium text-muted-foreground"
+                    >
+                      Visibility
+                    </Label>
+                    {!isUserPlanSubscribed && (
+                      <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                        Upgrade for Private
+                      </span>
+                    )}
+                  </div>
+                  <Select
+                    value={visibility}
+                    onValueChange={handleVisibilityChange}
+                    disabled={isCreating}
+                  >
+                    <SelectTrigger
+                      id="prototype-visibility"
+                      className="h-11 bg-background border-border text-foreground focus:ring-0"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border text-foreground">
+                      {visibilityOptions.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <SelectItem
+                            key={option.value}
+                            value={option.value}
+                            className="focus:bg-muted focus:text-foreground cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <Icon className="w-4 h-4 text-muted-foreground" />
+                              <span>{option.label}</span>
+                              {option.isLocked && (
+                                <Lock className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+                              )}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
+            {/* ADVANCED TAB */}
+            {activeTab === "advanced" && (
+              <div className="space-y-5 animate-in fade-in-50 duration-200">
                 <div className="space-y-2">
                   <Label
                     htmlFor="project-select"
@@ -358,12 +370,11 @@ export default function NewPrototypeModalUI({
                   <Select
                     value={selectedFolder || "none"}
                     onValueChange={(value) => {
-                      const projectValue = value === "none" ? null : value;
-                      setSelectedFolder(projectValue);
+                      setSelectedFolder(value === "none" ? null : value);
                       setHasManualDesignSelection(false);
                     }}
                   >
-                    <SelectTrigger className="h-10 bg-background border-border text-foreground text-sm focus:ring-0">
+                    <SelectTrigger className="h-11 bg-background border-border text-foreground text-sm focus:ring-0">
                       <div className="flex items-center gap-2 truncate">
                         <Folder className="w-3.5 h-3.5 text-muted-foreground" />
                         <SelectValue placeholder="Select folder..." />
@@ -378,8 +389,7 @@ export default function NewPrototypeModalUI({
                       </SelectItem>
                       {isLoadingFolders ? (
                         <div className="px-2 py-2 text-xs text-muted-foreground flex items-center gap-2">
-                          <Loader2 className="w-3 h-3 animate-spin" />{" "}
-                          Loading...
+                          <Loader2 className="w-3 h-3 animate-spin" /> Loading...
                         </div>
                       ) : (
                         folders.map((project) => (
@@ -399,7 +409,6 @@ export default function NewPrototypeModalUI({
                   </Select>
                 </div>
 
-                {/* Design Style */}
                 {ENABLE_DESIGN_SYSTEM && (
                   <div className="space-y-2">
                     <Label
@@ -417,7 +426,7 @@ export default function NewPrototypeModalUI({
                     >
                       <SelectTrigger
                         id="design-style"
-                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
+                        className="h-11 bg-background border-border text-foreground text-sm focus:ring-0"
                       >
                         <div className="flex items-center gap-2">
                           <Palette className="w-3.5 h-3.5 text-muted-foreground" />
@@ -439,7 +448,6 @@ export default function NewPrototypeModalUI({
                   </div>
                 )}
 
-                {/* Custom Design System */}
                 {ENABLE_DESIGN_SYSTEM && designSystems.length > 0 && (
                   <div className="space-y-2">
                     <Label
@@ -451,15 +459,13 @@ export default function NewPrototypeModalUI({
                     <Select
                       value={customDesignSystemId ?? "none"}
                       onValueChange={(value) => {
-                        setCustomDesignSystemId(
-                          value === "none" ? null : value,
-                        );
+                        setCustomDesignSystemId(value === "none" ? null : value);
                         setHasManualDesignSelection(true);
                       }}
                     >
                       <SelectTrigger
                         id="custom-design-system"
-                        className="h-10 bg-background border-border text-foreground text-sm focus:ring-0"
+                        className="h-11 bg-background border-border text-foreground text-sm focus:ring-0"
                       >
                         <SelectValue placeholder="None" />
                       </SelectTrigger>
@@ -483,19 +489,26 @@ export default function NewPrototypeModalUI({
                     </Select>
                   </div>
                 )}
-              </CollapsibleContent>
-            </Collapsible>
 
+                <div className="pt-2 border-t border-border">
+                  <p className="text-xs text-muted-foreground">
+                    These settings are optional. You can leave them as defaults.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Submit Button (visible on both tabs) */}
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <div className="w-full">
+                  <div className="w-full pt-2">
                     <Button
                       type="submit"
                       disabled={
                         isCreating ||
                         !name.trim() ||
-                        (userPlan === "free" && prototypeCount >= 5) ||
+                        isLimitReached ||
                         isViewer
                       }
                       className="w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 font-medium rounded-lg"
